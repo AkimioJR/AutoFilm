@@ -98,6 +98,39 @@ class SettingManager:
         return ani2alist_list
 
     @property
+    def API_ENABLE(self) -> bool:
+        """是否启用API服务"""
+        return self._get_config("Settings", "API_ENABLE", False)
+
+    @property
+    def API_PORT(self) -> int:
+        """API服务监听端口"""
+        return self._get_config("Settings", "API_PORT", 8000)
+    def _get_config(self, section: str, key: str, default: Any) -> Any:
+        """统一配置获取方法"""
+        # 修改前：使用 with self.CONFIG.open() as f:
+        # 修改后：
+        def load_config(self):
+            config_file = self.CONFIG_DIR / "config.yaml"
+            if config_file.exists():
+                with open(config_file, "r", encoding="utf-8") as f:
+                    self._config = safe_load(f)
+
+    @property
+    def API_PORT(self) -> int:
+        """API服务监听端口"""
+        return self._get_config("Settings", "API_PORT", 8000)
+    def _get_config(self, section: str, key: str, default: Any) -> Any:
+        """统一配置获取方法"""
+        with self.CONFIG.open(mode="r", encoding="utf-8") as f:
+            config = safe_load(f)
+            return config.get(section, {}).get(key, default)
+
+    @property
+    def API_KEY(self) -> str:
+
+        """API验证密钥"""
+        return self._get_config("Settings", "API_KEY", "")
     def LibraryPosterList(self) -> list[dict[str, Any]]:
         with self.CONFIG.open(mode="r", encoding="utf-8") as file:
             library_poster_list = safe_load(file).get("LibraryPosterList", [])

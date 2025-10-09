@@ -40,10 +40,22 @@
     ```bash
     docker run -d --name autofilm  -v ./config:/config -v ./media:/media -v ./logs:/logs akimio/autofilm
     ```
+
+2. Docker 中手动触发特定任务
+    ```bash
+    docker exec autofilm python /app/run.py <任务ID>
+    ```
+    通过`docker exec`命令可以在运行中的容器内执行run.py脚本来手动触发特定任务。
 2. Python 环境运行（Python3.12）
     ```bash
     python app/main.py
     ```
+
+3. 手动触发特定任务
+    ```bash
+    python app/run.py <任务ID>
+    ```
+    通过`run.py`可以手动触发配置文件中定义的特定任务，而不需要等待定时任务执行。
 
 # Strm文件优点
 - [x] 轻量化 Emby 服务器，降低 Emby 服务器的性能需求以及硬盘需求
@@ -94,4 +106,4 @@
 # Star History
 <a href="https://github.com/Akimio521/AutoFilm/stargazers">
     <img width="500" alt="Star History Chart" src="https://api.star-history.com/svg?repos=Akimio521/AutoFilm&type=Date">
-</a> 
+</a>

@@ -1,4 +1,7 @@
 Settings:
+  API_ENABLE: True                     # 启用API接口
+  API_PORT: 8000                       # API服务端口
+  API_KEY: your_secret_key             # API访问密钥
   DEV: False                          # 开发者模式(可选，默认 False)
 
 Alist2StrmList:
