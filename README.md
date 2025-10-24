@@ -1,11 +1,11 @@
 [license]: /LICENSE
-[license-badge]: https://img.shields.io/github/license/Akimio521/AutoFilm?style=flat-square&a=1
-[prs]: https://github.com/Akimio521/AutoFilm
+[license-badge]: https://img.shields.io/github/license/AkimioJR/AutoFilm?style=flat-square&a=1
+[prs]: https://github.com/AkimioJR/AutoFilm
 [prs-badge]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square
-[issues]: https://github.com/Akimio521/AutoFilm/issues/new
+[issues]: https://github.com/AkimioJR/AutoFilm/issues/new
 [issues-badge]: https://img.shields.io/badge/Issues-welcome-brightgreen.svg?style=flat-square
-[release]: https://github.com/Akimio521/AutoFilm/releases/latest
-[release-badge]: https://img.shields.io/github/v/release/Akimio521/AutoFilm?style=flat-square
+[release]: https://github.com/AkimioJR/AutoFilm/releases/latest
+[release-badge]: https://img.shields.io/github/v/release/AkimioJR/AutoFilm?style=flat-square
 [docker]: https://hub.docker.com/r/akimio/autofilm
 [docker-badge]: https://img.shields.io/docker/pulls/akimio/autofilm?color=%2348BB78&logo=docker&label=pulls
 
@@ -49,7 +49,7 @@
 - [x] 轻量化 Emby 服务器，降低 Emby 服务器的性能需求以及硬盘需求
 - [x] 运行稳定
 - [x] 相比直接访问 Webdav，Emby、Jellyfin 服务器可以提供更好的视频搜索功能以及自带刮削器，以及多设备同步播放进度
-- [x] 提高访问速度，播放速度不受 Emby / Jellyfin 服务器带宽限制（需要使用 [MediaWarp](https://github.com/Akimio521/MediaWarp)）
+- [x] 提高访问速度，播放速度不受 Emby / Jellyfin 服务器带宽限制（需要使用 [MediaWarp](https://github.com/AkimioJR/MediaWarp)）
 
 # TODO LIST
 - [x] 从 config 文件中读取配置
@@ -87,11 +87,11 @@
 - 2024.1.28：v0.1.1，初始版本持续迭代
 
 # 贡献者
-<a href="https://github.com/Akimio521/AutoFilm/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Akimio521/AutoFilm" />
+<a href="https://github.com/AkimioJR/AutoFilm/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=AkimioJR/AutoFilm" />
 </a>
 
 # Star History
-<a href="https://github.com/Akimio521/AutoFilm/stargazers">
-    <img width="500" alt="Star History Chart" src="https://api.star-history.com/svg?repos=Akimio521/AutoFilm&type=Date">
+<a href="https://github.com/AkimioJR/AutoFilm/stargazers">
+    <img width="500" alt="Star History Chart" src="https://api.star-history.com/svg?repos=AkimioJR/AutoFilm&type=Date">
 </a> 
