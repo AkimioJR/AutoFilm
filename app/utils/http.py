@@ -5,13 +5,11 @@ from asyncio import TaskGroup, to_thread
 from collections.abc import Coroutine
 from tempfile import TemporaryDirectory
 from shutil import copy
-from weakref import WeakSet
 
 from httpx import AsyncClient, Client, Response, TimeoutException
 from aiofile import async_open
 
 from app.core import settings, logger
-from app.utils.url import URLUtils
 from app.utils.retry import Retry
 
 
@@ -340,28 +338,17 @@ class RequestUtils:
     支持同步和异步请求
     """
 
-    __clients: dict[str, HTTPClient] = {}
-    __client_list: WeakSet[HTTPClient] = WeakSet()
+    __client = HTTPClient
 
     @classmethod
-    def get_client(cls, url: str = "") -> HTTPClient:
+    def get_client(cls, *_, **__) -> HTTPClient:
         """
         获取 HTTP 客户端
 
         :param url: 请求的 URL
         :return: HTTP 客户端
         """
-
-        if url:
-            _, domain, port = URLUtils.get_resolve_url(url)
-            key = f"{domain}:{port}"
-            if key not in cls.__clients:
-                cls.__clients[key] = HTTPClient()
-            return cls.__clients[key]
-
-        client = HTTPClient()
-        cls.__client_list.add(client)
-        return client
+        return cls.client
 
     @overload
     @classmethod
