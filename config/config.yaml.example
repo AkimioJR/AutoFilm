@@ -18,6 +18,10 @@ Alist2StrmList:
     overwrite: False                  # 覆盖模式，本地路径存在同名文件时是否重新生成/下载该文件（可选，默认 False）
     sync_server: True                 # 是否同步服务器（可选，默认为 True）
     sync_ignore: \.(nfo|jpg)$         # 同步时忽略的文件正则表达式（可选，默认为空，仅对文件名及拓展名有效，对路径无效）
+    smart_protection:                 # 智能保护，防止 Alist 故障导致的大量删除（可选）
+      enabled: True                   # 启用保护（默认：False）
+      threshold: 100                  # 触发保护的文件数量阈值（默认：100）
+      grace_scans: 3                  # 删除前需要的扫描次数（默认：3）
     other_ext:                        # 自定义下载后缀，使用西文半角逗号进行分割，（可选，默认为空）
     max_workers: 50                   # 最大并发数，减轻对 Alist 服务器的负载（可选，默认 50）
     max_downloaders: 5                # 最大同时下载文件数（可选，默认 5）
@@ -39,6 +43,8 @@ Alist2StrmList:
     overwrite: False
     sync_server: True
     sync_ignore:
+    smart_protection:
+      enabled: False
     other_ext: .zip,.md
     max_workers: 5
 
