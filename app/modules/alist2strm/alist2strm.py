@@ -20,6 +20,7 @@ class Alist2Strm:
         username: str = "",
         password: str = "",
         token: str = "",
+        public_url: str = "",
         source_dir: str = "/",
         target_dir: str | PathLike = "",
         flatten_mode: bool = False,
@@ -44,6 +45,7 @@ class Alist2Strm:
         :param url: Alist 服务器地址，默认为 "http://localhost:5244"
         :param username: Alist 用户名，默认为空
         :param password: Alist 密码，默认为空
+        :param public_url: 公共访问地址，用于生成 .strm 文件（可选）
         :param source_dir: 需要同步的 Alist 的目录，默认为 "/"
         :param target_dir: strm 文件输出目录，默认为当前工作目录
         :param flatten_mode: 平铺模式，将所有 Strm 文件保存至同一级目录，默认为 False
@@ -61,7 +63,7 @@ class Alist2Strm:
         :param smart_protection: 智能保护配置 {enabled: bool, threshold: int, grace_scans: int}
         """
 
-        self.client = AlistClient(url, username, password, token)
+        self.client = AlistClient(url, username, password, token, public_url)
         self.mode = Alist2StrmMode.from_str(mode)
 
         self.source_dir = source_dir
