@@ -2,40 +2,42 @@ Settings:
   DEV: False                          # 开发者模式(可选，默认 False)
 
 Alist2StrmList:
-  - id: 动漫                          # 标识 ID
-    cron: 0 20 * * *                  # 后台定时任务 Cron 表达式
-    url: https://alist.akimio.top     # Alist 服务器地址
-    username: admin                   # Alist 用户名
-    password: adminadmin              # Alist 密码
-    token: alist-d22d23ddf42fvv2      # Alist Token 永久令牌（可选，使用永久令牌则无需设置账号密码）
-    source_dir: /ani/                 # Alist 服务器上文件夹路径
-    target_dir: D:\media\             # 输出路径
-    flatten_mode: False               # 平铺模式，开启后 subtitle、image、nfo 强制关闭(可选，默认 False)
-    subtitle: False                   # 是否下载字幕文件（可选，默认 False）
-    image: False                      # 是否下载图片文件（可选，默认 False）
-    nfo: False                        # 是否下载 .nfo 文件（可选，默认 False）
-    mode: AlistURL                    # Strm 文件中的内容（可选项：AlistURL、RawURL、AlistPath）
-    overwrite: False                  # 覆盖模式，本地路径存在同名文件时是否重新生成/下载该文件（可选，默认 False）
-    sync_server: True                 # 是否同步服务器（可选，默认为 True）
-    sync_ignore: \.(nfo|jpg)$         # 同步时忽略的文件正则表达式（可选，默认为空，仅对文件名及拓展名有效，对路径无效）
-    smart_protection:                 # 智能保护，防止 Alist 故障导致的大量删除（可选）
-      enabled: True                   # 启用保护（默认：False）
-      threshold: 100                  # 触发保护的文件数量阈值（默认：100）
-      grace_scans: 3                  # 删除前需要的扫描次数（默认：3）
-    other_ext:                        # 自定义下载后缀，使用西文半角逗号进行分割，（可选，默认为空）
-    max_workers: 50                   # 最大并发数，减轻对 Alist 服务器的负载（可选，默认 50）
-    max_downloaders: 5                # 最大同时下载文件数（可选，默认 5）
-    wait_time: 0                      # 遍历请求间隔时间，避免被风控，单位为秒，默认为 0
+  - id: 动漫                                # 标识 ID
+    cron: 0 20 * * *                        # 后台定时任务 Cron 表达式
+    url: http://alist:5244                  # Alist 服务器地址
+    public_url: https://alist.akimio.top    # 公共访问地址，用于 AlistURL 模式生成 .strm 文件内容（可选，默认使用 url）
+    username: admin                         # Alist 用户名
+    password: adminadmin                    # Alist 密码
+    token: alist-d22d23ddf42fvv2            # Alist Token 永久令牌（可选，使用永久令牌则无需设置账号密码）
+    source_dir: /ani/                       # Alist 服务器上文件夹路径
+    target_dir: D:\media\                   # 输出路径
+    flatten_mode: False                     # 平铺模式，开启后 subtitle、image、nfo 强制关闭(可选，默认 False)
+    subtitle: False                         # 是否下载字幕文件（可选，默认 False）
+    image: False                            # 是否下载图片文件（可选，默认 False）
+    nfo: False                              # 是否下载 .nfo 文件（可选，默认 False）
+    mode: AlistURL                          # Strm 文件中的内容（可选项：AlistURL、RawURL、AlistPath）
+    overwrite: False                        # 覆盖模式，本地路径存在同名文件时是否重新生成/下载该文件（可选，默认 False）
+    sync_server: True                       # 是否同步服务器（可选，默认为 True）
+    sync_ignore: \.(nfo|jpg)$               # 同步时忽略的文件正则表达式（可选，默认为空，仅对文件名及拓展名有效，对路径无效）
+    smart_protection:                       # 智能保护，防止 Alist 故障导致的大量删除（可选）
+      enabled: True                         # 启用保护（默认：False）
+      threshold: 100                        # 触发保护的文件数量阈值（默认：100）
+      grace_scans: 3                        # 删除前需要的扫描次数（默认：3）
+    other_ext:                              # 自定义下载后缀，使用西文半角逗号进行分割，（可选，默认为空）
+    max_workers: 50                         # 最大并发数，减轻对 Alist 服务器的负载（可选，默认 50）
+    max_downloaders: 5                      # 最大同时下载文件数（可选，默认 5）
+    wait_time: 0                            # 遍历请求间隔时间，避免被风控，单位为秒，默认为 0
 
   - id: 电影
     cron: 0 0 7 * *
     url: http://alist.example2.com:5244
+    public_url:
     username: alist
     password: alist
     token:
     source_dir: /网盘/115/电影
-    target_dir: /media/my_video 
-    flatten_mode: False 
+    target_dir: /media/my_video
+    flatten_mode: False
     subtitle: False
     image: False
     nfo: False

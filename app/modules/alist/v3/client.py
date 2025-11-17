@@ -21,6 +21,7 @@ class AlistClient(metaclass=Multiton):
         username: str = "",
         password: str = "",
         token: str = "",
+        public_url: str = "",
     ) -> None:
         """
         AlistClient 类初始化
@@ -29,6 +30,7 @@ class AlistClient(metaclass=Multiton):
         :param username: Alist 用户名
         :param password: Alist 密码
         :param token: Alist 永久令牌
+        :param public_url: 公共访问地址，用于生成 .strm 文件（可选）
         """
 
         if (username == "" or password == "") and token == "":
@@ -45,6 +47,11 @@ class AlistClient(metaclass=Multiton):
         if not url.startswith("http"):
             url = "https://" + url
         self.url = url.rstrip("/")
+        
+        # 存储公共访问地址（如果提供）
+        if public_url and not public_url.startswith("http"):
+            public_url = "https://" + public_url
+        self.public_url = public_url.rstrip("/") if public_url else None
 
         if token != "":
             self.__token["token"] = token
@@ -217,6 +224,7 @@ class AlistClient(metaclass=Multiton):
         return [
             AlistPath(
                 server_url=self.url,
+                public_url=self.public_url,
                 base_path=self.base_path,
                 full_path=dir_path + "/" + alist_path["name"],
                 **alist_path,
@@ -255,6 +263,7 @@ class AlistClient(metaclass=Multiton):
         logger.debug(f"获取路径 {path} 详细信息成功")
         return AlistPath(
             server_url=self.url,
+            public_url=self.public_url,
             base_path=self.base_path,
             full_path=path,
             **result["data"],
