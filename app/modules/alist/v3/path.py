@@ -13,7 +13,6 @@ class AlistPath(BaseModel):
     """
 
     server_url: str  # 服务器地址
-    public_url: str | None = None  # 公共访问地址，用于生成 .strm 文件（可选，如果与 server_url 不同）
     base_path: str  # 用户基础路径（用于计算文件/目录在 Alist 服务器上的绝对地址）
     full_path: str  # 相对用户根文件/目录路径
 
@@ -49,13 +48,10 @@ class AlistPath(BaseModel):
         """
         文件下载地址
         """
-        # 如果定义了 public_url 则使用它，否则使用 server_url
-        base_url = self.public_url if self.public_url else self.server_url
-        
         if self.sign:
-            url = base_url + "/d" + self.abs_path + "?sign=" + self.sign
+            url = self.server_url + "/d" + self.abs_path + "?sign=" + self.sign
         else:
-            url = base_url + "/d" + self.abs_path
+            url = self.server_url + "/d" + self.abs_path
 
         return URLUtils.encode(url)
 
