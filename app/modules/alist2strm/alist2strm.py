@@ -43,9 +43,9 @@ class Alist2Strm:
 
         :param id: 任务标识 ID，默认为空
         :param url: Alist 服务器地址，默认为 "http://localhost:5244"
+        :param public_url: 公共访问地址，用于 AlistURL 模式生成 .strm 文件（可选）
         :param username: Alist 用户名，默认为空
         :param password: Alist 密码，默认为空
-        :param public_url: 公共访问地址，用于生成 .strm 文件（可选）
         :param source_dir: 需要同步的 Alist 的目录，默认为 "/"
         :param target_dir: strm 文件输出目录，默认为当前工作目录
         :param flatten_mode: 平铺模式，将所有 Strm 文件保存至同一级目录，默认为 False
@@ -63,8 +63,12 @@ class Alist2Strm:
         :param smart_protection: 智能保护配置 {enabled: bool, threshold: int, grace_scans: int}
         """
 
-        self.client = AlistClient(url, username, password, token, public_url)
+        self.client = AlistClient(url, username, password, token)
         self.mode = Alist2StrmMode.from_str(mode)
+        
+        if public_url and not public_url.startswith("http"):
+            public_url = "https://" + public_url
+        self.public_url = public_url.rstrip("/") if public_url else None
 
         self.source_dir = source_dir
         self.target_dir = Path(target_dir)
@@ -247,6 +251,9 @@ class Alist2Strm:
         # 统一的 URL 生成逻辑，BDMV 文件与普通文件使用相同的逻辑
         if self.mode == Alist2StrmMode.AlistURL:
             content = path.download_url
+            # 如果定义了 public_url，则替换服务器 URL 为公共访问 URL
+            if self.public_url:
+                content = content.replace(self.client.url, self.public_url)
         elif self.mode == Alist2StrmMode.RawURL:
             content = path.raw_url
         elif self.mode == Alist2StrmMode.AlistPath:
