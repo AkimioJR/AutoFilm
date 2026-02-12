@@ -338,7 +338,7 @@ class RequestUtils:
     支持同步和异步请求
     """
 
-    __client = HTTPClient
+    __client: HTTPClient | None = None
 
     @classmethod
     def get_client(cls, *_, **__) -> HTTPClient:
@@ -348,7 +348,9 @@ class RequestUtils:
         :param url: 请求的 URL
         :return: HTTP 客户端
         """
-        return cls.client
+        if cls.__client is None:
+            cls.__client = HTTPClient()
+        return cls.__client
 
     @overload
     @classmethod
