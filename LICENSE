@@ -1,3 +1,11 @@
+# Open Source License
+
+AutoFilm is licensed under a modified version of the GNU AFFERO GENERAL PUBLIC LICENSE 3, with the following additional conditions:
+  1. Ownership belongs to the AutoFilm author, AkimioJR (akimio.jr@gmail.com).
+  2. The related code may not be used for commercial activities.
+  3. If you use/reference AutoFilm code, you must open-source your modifications and clearly state that the code/inspiration comes from AutoFilm, including a link to the project.
+
+
                     GNU AFFERO GENERAL PUBLIC LICENSE
                        Version 3, 19 November 2007
 
@@ -58,7 +66,7 @@ modification follow.
 
                        TERMS AND CONDITIONS
 
-  0. Definitions.
+  1. Definitions.
 
   "This License" refers to version 3 of the GNU Affero General Public License.
 

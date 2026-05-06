@@ -1,9 +1,11 @@
 from enum import Enum
 
+
 class Alist2StrmMode(Enum):
     """
     模块 alist2strm 的运行模式
     """
+
     AlistURL = "AlistURL"
     RawURL = "RawURL"
     AlistPath = "AlistPath"
@@ -17,4 +19,7 @@ class Alist2StrmMode(Enum):
         :return: Alist2StrmMode 枚举值
         例如，"alisturl" 将返回 Alist2StrmMode.AlistURL
         """
-        return cls[mode_str.upper()] if mode_str.upper() in cls.__members__ else cls.AlistURL
+        for member_name, member_value in cls.__members__.items():
+            if member_name.lower() == mode_str.lower():
+                return member_value
+        return cls.AlistURL

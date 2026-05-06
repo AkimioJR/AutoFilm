@@ -64,7 +64,7 @@ def main():
             print(f"  Ani2Alist: {task.get('id')}")
             
         # 显示所有LibraryPoster任务ID
-        for task in settings.LibraryPosterList():
+        for task in settings.LibraryPosterList:
             print(f"  LibraryPoster: {task.get('id')}")
             
         return
@@ -90,7 +90,7 @@ def main():
         return
     
     # 查找LibraryPoster任务
-    poster_task = find_task_by_id(settings.LibraryPosterList(), task_id)
+    poster_task = find_task_by_id(settings.LibraryPosterList, task_id)
     if poster_task:
         print(f"正在执行 LibraryPoster 任务: {task_id}")
         LibraryPoster = get_libraryposter()
@@ -110,7 +110,7 @@ def main():
         print(f"  Ani2Alist: {task.get('id')}")
         
     # 显示所有LibraryPoster任务ID
-    for task in settings.LibraryPosterList():
+    for task in settings.LibraryPosterList:
         print(f"  LibraryPoster: {task.get('id')}")
 
 

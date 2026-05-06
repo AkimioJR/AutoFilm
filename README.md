@@ -1,11 +1,11 @@
 [license]: /LICENSE
-[license-badge]: https://img.shields.io/github/license/Akimio521/AutoFilm?style=flat-square&a=1
-[prs]: https://github.com/Akimio521/AutoFilm
+[license-badge]: https://img.shields.io/github/license/AkimioJR/AutoFilm?style=flat-square&a=1
+[prs]: https://github.com/AkimioJR/AutoFilm
 [prs-badge]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square
-[issues]: https://github.com/Akimio521/AutoFilm/issues/new
+[issues]: https://github.com/AkimioJR/AutoFilm/issues/new
 [issues-badge]: https://img.shields.io/badge/Issues-welcome-brightgreen.svg?style=flat-square
-[release]: https://github.com/Akimio521/AutoFilm/releases/latest
-[release-badge]: https://img.shields.io/github/v/release/Akimio521/AutoFilm?style=flat-square
+[release]: https://github.com/AkimioJR/AutoFilm/releases/latest
+[release-badge]: https://img.shields.io/github/v/release/AkimioJR/AutoFilm?style=flat-square
 [docker]: https://hub.docker.com/r/akimio/autofilm
 [docker-badge]: https://img.shields.io/docker/pulls/akimio/autofilm?color=%2348BB78&logo=docker&label=pulls
 
@@ -61,7 +61,7 @@
 - [x] 轻量化 Emby 服务器，降低 Emby 服务器的性能需求以及硬盘需求
 - [x] 运行稳定
 - [x] 相比直接访问 Webdav，Emby、Jellyfin 服务器可以提供更好的视频搜索功能以及自带刮削器，以及多设备同步播放进度
-- [x] 提高访问速度，播放速度不受 Emby / Jellyfin 服务器带宽限制（需要使用 [MediaWarp](https://github.com/Akimio521/MediaWarp)）
+- [x] 提高访问速度，播放速度不受 Emby / Jellyfin 服务器带宽限制（需要使用 [MediaWarp](https://github.com/AkimioJR/MediaWarp)）
 
 # TODO LIST
 - [x] 从 config 文件中读取配置
@@ -82,6 +82,7 @@
 ![LibraryPoster](./img/LibraryPoster.png)
 
 # 更新日志
+- 2025.9.26：v1.5.0，支持 BDMV 蓝光原盘文件结构，引入 Alist2StrmMode 枚举以简化模式管理，优化 LibraryPoster 对多路径媒体库的处理
 - 2025.7.14：v1.4.0，修复 Ani2Alist 模块时间解析问题，新增 LibraryPoster 美化媒体库封面模块
 - 2025.5.29：v1.3.3，Alist2Strm 模块支持添加删除空目录的功能；提高 Alist V3.45 兼容性；添加 m2ts 视频文件后缀到视频扩展集合；修复视频扩展集合中".wmv"缺失前缀错误
 - 2025.4.4：v1.3.2，添加 .mpg 视频文件后缀；优化重试装饰器；优化重试装饰器；新增遍历文件间隔时间，防止被风控；修正部分方法名、返回变量类型、文档表述错误
@@ -98,11 +99,11 @@
 - 2024.1.28：v0.1.1，初始版本持续迭代
 
 # 贡献者
-<a href="https://github.com/Akimio521/AutoFilm/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Akimio521/AutoFilm" />
+<a href="https://github.com/AkimioJR/AutoFilm/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=AkimioJR/AutoFilm" />
 </a>
 
 # Star History
-<a href="https://github.com/Akimio521/AutoFilm/stargazers">
-    <img width="500" alt="Star History Chart" src="https://api.star-history.com/svg?repos=Akimio521/AutoFilm&type=Date">
-</a>
+<a href="https://github.com/AkimioJR/AutoFilm/stargazers">
+    <img width="500" alt="Star History Chart" src="https://api.star-history.com/svg?repos=AkimioJR/AutoFilm&type=Date">
+</a> 

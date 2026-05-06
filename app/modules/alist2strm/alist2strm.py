@@ -15,10 +15,12 @@ from app.modules.alist2strm.mode import Alist2StrmMode
 class Alist2Strm:
     def __init__(
         self,
+        id: str = "",
         url: str = "http://localhost:5244",
         username: str = "",
         password: str = "",
         token: str = "",
+        public_url: str = "",
         source_dir: str = "/",
         target_dir: str | PathLike = "",
         flatten_mode: bool = False,
@@ -33,12 +35,15 @@ class Alist2Strm:
         wait_time: float | int = 0,
         sync_server: bool = False,
         sync_ignore: str | None = None,
+        smart_protection: dict | None = None,
         **_,
     ) -> None:
         """
         实例化 Alist2Strm 对象
 
+        :param id: 任务标识 ID，默认为空
         :param url: Alist 服务器地址，默认为 "http://localhost:5244"
+        :param public_url: 公共访问地址，用于 AlistURL 模式生成 .strm 文件（可选）
         :param username: Alist 用户名，默认为空
         :param password: Alist 密码，默认为空
         :param source_dir: 需要同步的 Alist 的目录，默认为 "/"
@@ -55,10 +60,15 @@ class Alist2Strm:
         :param max_downloaders: 最大同时下载
         :param wait_time: 遍历请求间隔时间，单位为秒，默认为 0
         :param sync_ignore: 同步时忽略的文件正则表达式
+        :param smart_protection: 智能保护配置 {enabled: bool, threshold: int, grace_scans: int}
         """
 
         self.client = AlistClient(url, username, password, token)
         self.mode = Alist2StrmMode.from_str(mode)
+        
+        if public_url and not public_url.startswith("http"):
+            public_url = "https://" + public_url
+        self.public_url = public_url.rstrip("/") if public_url else None
 
         self.source_dir = source_dir
         self.target_dir = Path(target_dir)
@@ -90,6 +100,17 @@ class Alist2Strm:
             self.sync_ignore_pattern = re_compile(sync_ignore)
         else:
             self.sync_ignore_pattern = None
+        
+        if smart_protection and smart_protection.get('enabled', False):
+            from app.modules.alist2strm.strm_protection import StrmProtectionManager
+            threshold = smart_protection.get('threshold', 100)
+            grace_scans = smart_protection.get('grace_scans', 3)
+            self.strm_protection = StrmProtectionManager(
+                self.target_dir, id, threshold, grace_scans
+            )
+            logger.info(f".strm 保护已启用：阈值={threshold}，宽限期={grace_scans}")
+        else:
+            self.strm_protection = None
 
     async def run(self) -> None:
         """
@@ -230,6 +251,9 @@ class Alist2Strm:
         # 统一的 URL 生成逻辑，BDMV 文件与普通文件使用相同的逻辑
         if self.mode == Alist2StrmMode.AlistURL:
             content = path.download_url
+            # 如果定义了 public_url，则替换服务器 URL 为公共访问 URL
+            if self.public_url:
+                content = content.replace(self.client.url, self.public_url)
         elif self.mode == Alist2StrmMode.RawURL:
             content = path.raw_url
         elif self.mode == Alist2StrmMode.AlistPath:
@@ -307,7 +331,25 @@ class Alist2Strm:
             all_local_files = [f for f in self.target_dir.rglob("*") if f.is_file()]
 
         files_to_delete = set(all_local_files) - self.processed_local_paths
-
+        strm_present = None
+        if self.strm_protection:
+            strm_present = {f for f in self.processed_local_paths if f.suffix == '.strm'}
+        
+        if not files_to_delete:
+            if self.strm_protection:
+                self.strm_protection.process(set(), strm_present)
+                self.strm_protection.save()
+            return
+        
+        strm_to_delete = {f for f in files_to_delete if f.suffix == '.strm'}
+        other_files = files_to_delete - strm_to_delete
+        
+        if self.strm_protection:
+            strm_to_delete = self.strm_protection.process(strm_to_delete, strm_present)
+            self.strm_protection.save()
+        
+        files_to_delete = strm_to_delete | other_files
+        
         for file_path in files_to_delete:
             # 检查文件是否匹配忽略正则表达式
             if self.sync_ignore_pattern and self.sync_ignore_pattern.search(

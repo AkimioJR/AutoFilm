@@ -74,30 +74,53 @@ class LibraryPoster:
         self,
         library_id: str,
         user_id: str = "",
-    ) -> list[dict[str, Any]]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """
         获取指定媒体库的详细信息
         :param library_id: 媒体库 ID
         :param user_id: 用户 ID（可选）
         :return: 媒体库项目列表
         """
+
+        async def fetch_items(
+            parent_id: str, user_id: str, max_depth: int = 1, current_depth: int = 0
+        ) -> AsyncGenerator[dict[str, Any], None]:
+            """
+            递归获取媒体库项目
+            """
+            url = f"{self.__server_url}/Users/{user_id}/Items?ParentId={parent_id}&api_key={self.__api_key}"
+            resp = await RequestUtils.get(url)
+
+            if not resp or resp.status_code != 200:
+                return
+            for item in resp.json().get("Items", []):
+                if item.get("IsFolder", False) and current_depth < max_depth:
+                    # 递归获取子项
+                    async for sub_item in fetch_items(
+                        parent_id=item["Id"],
+                        user_id=user_id,
+                        max_depth=max_depth,
+                        current_depth=current_depth + 1,
+                    ):
+                        yield sub_item
+                else:
+                    yield item
+
         if not user_id:
             users = await self.get_users()
             if not users:
-                logger.warning("未找到任何用户，无法获取媒体库项目")
-                return []
+                raise Exception("未找到任何用户，无法获取媒体库项目")
             user_id = users[0]["Id"]  # 默认使用第一个用户
 
         url = f"{self.__server_url}/Users/{user_id}/Items?ParentId={library_id}&api_key={self.__api_key}"
         resp = await RequestUtils.get(url)
 
         if resp is None or resp.status_code != 200:
-            logger.warning(
+            raise Exception(
                 f"获取 {library_id} 媒体库信息失败, 状态码: {resp.status_code if resp else '无响应'}"
             )
-            return []
 
-        return resp.json()["Items"]
+        return fetch_items(library_id, user_id, 5)
 
     async def download_item_image(
         self,
@@ -130,8 +153,8 @@ class LibraryPoster:
         :return:
         """
         logger.info(f"开始下载 {library['Name']} 媒体库的海报图片")
-        for items in await self.get_library_items(library["Id"]):
-            image = await self.download_item_image(items)
+        async for item in self.get_library_items(library["Id"]):
+            image = await self.download_item_image(item)
             if image is not None:
                 yield image
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import APIKeyHeader
 
 from app.core import settings, logger
-from app.modules import Alist2Strm, Ani2Alist
+from app.modules import Alist2Strm, Ani2Alist, LibraryPoster
 
 router = APIRouter()
 security = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -47,4 +47,17 @@ async def trigger_ani2alist(
         raise HTTPException(status_code=404, detail="Server not found")
 
     await Ani2Alist(**server_config).run()
+    return {"status": "success"}
+
+@router.post("/trigger/libraryposter")
+async def trigger_libraryposter(
+    server_id: str,
+    _ = Depends(get_api_key)
+):
+    logger.info(f"API触发LibraryPoster任务：{server_id}")
+    server_config = next((s for s in settings.LibraryPosterList if s["id"] == server_id), None)
+    if not server_config:
+        raise HTTPException(status_code=404, detail="Server not found")
+
+    await LibraryPoster(**server_config).run()
     return {"status": "success"}
