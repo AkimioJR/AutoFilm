@@ -338,7 +338,7 @@ class RequestUtils:
     支持同步和异步请求
     """
 
-    __client = HTTPClient
+    client = HTTPClient()
 
     @classmethod
     def get_client(cls, *_, **__) -> HTTPClient:
