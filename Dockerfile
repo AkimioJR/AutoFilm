@@ -16,7 +16,7 @@ COPY app ./app
 RUN python setup.py
 
 RUN apk del build-base linux-headers && \
-    find app -type f \( -name "*.py" ! -name "main.py" ! -name "__init__.py" -o -name "*.c" \) -delete
+    find app -type f \( -name "*.py" ! -name "main.py" ! -name "__init__.py" ! -name "run.py" -o -name "*.c" \) -delete
 
 FROM python:3.12.7-alpine
 
