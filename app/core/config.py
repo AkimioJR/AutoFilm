@@ -30,13 +30,11 @@ class SettingManager:
         """
         创建目录
         """
-        with self.CONFIG_DIR as dir_path:
-            if not dir_path.exists():
-                dir_path.mkdir(parents=True, exist_ok=True)
+        if not self.CONFIG_DIR.exists():
+            self.CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 
-        with self.LOG_DIR as dir_path:
-            if not dir_path.exists():
-                dir_path.mkdir(parents=True, exist_ok=True)
+        if not self.LOG_DIR.exists():
+            self.LOG_DIR.mkdir(parents=True, exist_ok=True)
 
     def __load_mode(self) -> None:
         """
