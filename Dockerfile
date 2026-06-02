@@ -1,4 +1,4 @@
-FROM python:3.12.7-alpine
+FROM python:3.13.9-alpine
 
 ENV TZ=Asia/Shanghai
 VOLUME ["/config", "/logs", "/media","/fonts"]
