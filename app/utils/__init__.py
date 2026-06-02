@@ -1,4 +1,3 @@
-from app.utils.http import RequestUtils, HTTPClient
 from app.utils.alist import AlistUtils
 from app.utils.retry import Retry
 from app.utils.url import URLUtils
@@ -8,8 +7,6 @@ from app.utils.strings import StringsUtils
 from app.utils.photo import PhotoUtils
 
 __all__ = [
-    RequestUtils,
-    HTTPClient,
     AlistUtils,
     Retry,
     URLUtils,

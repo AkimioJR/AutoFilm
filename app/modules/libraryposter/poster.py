@@ -3,10 +3,12 @@ from pathlib import Path
 from io import BytesIO
 from typing import Any, AsyncGenerator
 
+from httpx import AsyncClient
 from PIL import Image, ImageDraw, ImageFont
 
 from app.core import logger
-from app.utils import RequestUtils, PhotoUtils
+from app.core import settings
+from app.utils import PhotoUtils
 
 
 class LibraryPoster:
@@ -31,13 +33,22 @@ class LibraryPoster:
         self.__title_font_path = Path(title_font_path)
         self.__subtitle_font_path = Path(subtitle_font_path)
         self.__configs = configs
+        self.__http_client = AsyncClient(
+            http2=True,
+            follow_redirects=True,
+            timeout=10,
+            headers={
+                "User-Agent": f"AutoFilm/{settings.APP_VERSION}",
+                "Accept": "application/json",
+            },
+        )
 
     async def get_users(self) -> list[dict[str, Any]]:
         """
         获取用户列表
         :return: 用户列表
         """
-        resp = await RequestUtils.get(
+        resp = await self.__http_client.get(
             f"{self.__server_url}/Users?api_key={self.__api_key}"
         )
         if resp is None:
@@ -55,7 +66,7 @@ class LibraryPoster:
         """
         返回媒体库列表
         """
-        resp = await RequestUtils.get(
+        resp = await self.__http_client.get(
             f"{self.__server_url}/Library/MediaFolders?api_key={self.__api_key}",
         )
         if resp is None:
@@ -89,7 +100,7 @@ class LibraryPoster:
             递归获取媒体库项目
             """
             url = f"{self.__server_url}/Users/{user_id}/Items?ParentId={parent_id}&api_key={self.__api_key}"
-            resp = await RequestUtils.get(url)
+            resp = await self.__http_client.get(url)
 
             if not resp or resp.status_code != 200:
                 return
@@ -113,7 +124,7 @@ class LibraryPoster:
             user_id = users[0]["Id"]  # 默认使用第一个用户
 
         url = f"{self.__server_url}/Users/{user_id}/Items?ParentId={library_id}&api_key={self.__api_key}"
-        resp = await RequestUtils.get(url)
+        resp = await self.__http_client.get(url)
 
         if resp is None or resp.status_code != 200:
             raise Exception(
@@ -133,7 +144,7 @@ class LibraryPoster:
         :return: 图片字节内容
         """
         url = f"{self.__server_url}/Items/{item['Id']}/Images/{image_type}?api_key={self.__api_key}"
-        resp = await RequestUtils.get(url)
+        resp = await self.__http_client.get(url)
 
         if resp is None or resp.status_code != 200:
             logger.warning(
@@ -352,7 +363,9 @@ class LibraryPoster:
         }
 
         image_data_base64 = PhotoUtils.encode_image(image=image, format="PNG")
-        resp = await RequestUtils.post(url, data=image_data_base64, headers=headers)
+        resp = await self.__http_client.post(
+            url, data=image_data_base64, headers=headers
+        )
         if resp is None or resp.status_code != 204:
             logger.warning(
                 f"更新 {library['Name']} 媒体库图片失败, 状态码: {resp.status_code if resp else '无响应'}"

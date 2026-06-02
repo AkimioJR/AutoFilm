@@ -5,9 +5,9 @@ from re import compile as re_compile
 import traceback
 
 from aiofile import async_open
+from httpx import AsyncClient
 
-from app.core import logger
-from app.utils import RequestUtils
+from app.core import logger, settings
 from app.extensions import VIDEO_EXTS, SUBTITLE_EXTS, IMAGE_EXTS, NFO_EXTS
 from app.modules.alist import AlistClient, AlistPath
 from app.modules.alist2strm.mode import Alist2StrmMode
@@ -64,6 +64,15 @@ class Alist2Strm:
         """
 
         self.client = AlistClient(url, username, password, token)
+        self.__http_client = AsyncClient(
+            http2=True,
+            follow_redirects=True,
+            timeout=10,
+            headers={
+                "User-Agent": f"AutoFilm/{settings.APP_VERSION}",
+                "Accept": "application/json",
+            },
+        )
         self.mode = Alist2StrmMode.from_str(mode)
         
         if public_url and not public_url.startswith("http"):
@@ -274,8 +283,22 @@ class Alist2Strm:
             logger.info(f"{local_path.name} 创建成功")
         else:
             async with self.__max_downloaders:
-                await RequestUtils.download(path.download_url, local_path)
+                await self.__download_file(path.download_url, local_path)
                 logger.info(f"{local_path.name} 下载成功")
+
+    async def __download_file(self, url: str, local_path: Path) -> None:
+        """
+        下载文件到本地路径
+        """
+        async with self.__http_client.stream("GET", url) as resp:
+            if resp.status_code != 200:
+                raise RuntimeError(
+                    f"下载文件请求发送失败，状态码：{resp.status_code}"
+                )
+
+            async with async_open(local_path, mode="wb") as file:
+                async for chunk in resp.aiter_bytes(64 * 1024):
+                    await file.write(chunk)
 
     def __get_local_path(self, path: AlistPath) -> Path:
         """
@@ -462,4 +485,3 @@ class Alist2Strm:
 
         largest_file = self.bdmv_largest_files.get(bdmv_root)
         return largest_file is not None and largest_file.full_path == path.full_path
-

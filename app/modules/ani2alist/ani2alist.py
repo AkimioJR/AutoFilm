@@ -2,9 +2,11 @@ from typing import Final
 from datetime import datetime
 
 from feedparser import parse  # type:ignore
+from httpx import AsyncClient
 
 from app.core import logger
-from app.utils import RequestUtils, URLUtils
+from app.core import settings
+from app.utils import URLUtils
 from app.utils import AlistUtils
 from app.modules.alist import AlistClient
 
@@ -53,6 +55,15 @@ class Ani2Alist:
         """
 
         self.client = AlistClient(url, username, password, token)
+        self.__http_client = AsyncClient(
+            http2=True,
+            follow_redirects=True,
+            timeout=10,
+            headers={
+                "User-Agent": f"AutoFilm/{settings.APP_VERSION}",
+                "Accept": "application/json",
+            },
+        )
         self.__target_dir = "/" + target_dir.strip("/")
 
         self.__year: int | None = None
@@ -165,7 +176,7 @@ class Ani2Alist:
             用于递归更新解析数据
             """
             logger.debug(f"请求地址：{_url}")
-            _resp = await RequestUtils.post(_url)
+            _resp = await self.__http_client.post(_url)
             if _resp.status_code != 200:
                 raise Exception(f"请求发送失败，状态码：{_resp.status_code}")
 
@@ -243,7 +254,9 @@ class Ani2Alist:
             number, unit = [string.strip() for string in size_str.split()]
             return int(float(number) * units[unit])
 
-        resp = await RequestUtils.get(f"https://{self.__rss_domain}/ani-download.xml")
+        resp = await self.__http_client.get(
+            f"https://{self.__rss_domain}/ani-download.xml"
+        )
         if resp.status_code != 200:
             raise Exception(f"请求发送失败，状态码：{resp.status_code}")
         feeds = parse(resp.text)

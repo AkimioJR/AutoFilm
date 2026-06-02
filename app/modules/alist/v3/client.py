@@ -2,10 +2,11 @@ from asyncio import sleep
 from typing import Callable, AsyncGenerator
 from time import time
 
-from httpx import Response
+from httpx import AsyncClient, Client, Response
 
 from app.core import logger
-from app.utils import RequestUtils, Multiton
+from app.core import settings
+from app.utils import Multiton
 from app.modules.alist.v3.path import AlistPath
 from app.modules.alist.v3.storage import AlistStorage
 
@@ -34,7 +35,22 @@ class AlistClient(metaclass=Multiton):
         if (username == "" or password == "") and token == "":
             raise ValueError("用户名及密码为空或令牌 Token 为空")
 
-        self.__client = RequestUtils.get_client()
+        headers = {
+            "User-Agent": f"AutoFilm/{settings.APP_VERSION}",
+            "Accept": "application/json",
+        }
+        self.__client = AsyncClient(
+            http2=True,
+            follow_redirects=True,
+            timeout=10,
+            headers=headers,
+        )
+        self.__sync_client = Client(
+            http2=True,
+            follow_redirects=True,
+            timeout=10,
+            headers=headers,
+        )
         self.__token = {
             "token": "",  # 令牌 token str
             "expires": 0,  # 令牌过期时间（时间戳，-1为永不过期） int
@@ -76,7 +92,7 @@ class AlistClient(metaclass=Multiton):
             headers = kwargs.get("headers", {})
             headers["Authorization"] = self.__get_token
             kwargs["headers"] = headers
-        return await self.__client.request(method, url, **kwargs, sync=False)
+        return await self.__client.request(method, url, **kwargs)
 
     async def __get(self, url: str, auth: bool = True, **kwargs) -> Response:
         """
@@ -143,7 +159,7 @@ class AlistClient(metaclass=Multiton):
         """
 
         json = {"username": self.username, "password": self.__password}
-        resp = self.__client.post(self.url + "/api/auth/login", json=json, sync=True)
+        resp = self.__sync_client.post(self.url + "/api/auth/login", json=json)
         if resp.status_code != 200:
             raise RuntimeError(f"更新令牌请求发送失败，状态码：{resp.status_code}")
 
@@ -162,7 +178,7 @@ class AlistClient(metaclass=Multiton):
         """
 
         headers = {"Authorization": self.__get_token}
-        resp = self.__client.get(self.url + "/api/me", headers=headers, sync=True)
+        resp = self.__sync_client.get(self.url + "/api/me", headers=headers)
 
         if resp.status_code != 200:
             raise RuntimeError(f"获取用户信息请求发送失败，状态码：{resp.status_code}")
