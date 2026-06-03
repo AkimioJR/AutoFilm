@@ -6,7 +6,7 @@ on:
     branches:
       - "main"
     tags:
-      - "v*"
+      - "v*.*.*"
   pull_request:
     branches:
       - "main"
@@ -29,6 +29,8 @@ jobs:
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
+        with:
+          cache-image: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -52,3 +54,11 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha, scope=${{ github.workflow }}
           cache-to: type=gha, scope=${{ github.workflow }}
+
+      - name: Docker Hub Description
+        uses: peter-evans/dockerhub-description@v5
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ secrets.DOCKERHUB_USERNAME }}/autofilm
+          short-description: ${{ github.event.repository.description }}
