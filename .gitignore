@@ -1,11 +1,12 @@
 config/config.yaml
-logs/*.log
+config/config.old.yaml
+
+logs/*
 strm/*
 media/*
 __pycache__/*
 .mypy_cache/*
 target/*
-dist/*
 
 .DS_Store
 *bak
