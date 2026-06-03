@@ -1,0 +1,80 @@
+version: 2
+
+project_name: AutoFilm
+
+git:
+  ignore_tags:
+    - pre-release
+
+snapshot:
+  version_template: "PreRelease-v{{ incpatch .Version }}-{{ .ShortCommit }}"
+
+release:
+  name_template: "{{ .Tag }}"
+  extra_files:
+    - glob: ./config/config.example.yaml
+      name_template: config.yaml
+    - glob: ./LICENSE
+
+before:
+  hooks:
+    - cargo fetch --locked
+
+builds:
+  - id: autofilm
+    builder: rust
+    binary: autofilm
+    targets:
+      - x86_64-unknown-linux-musl
+      - aarch64-unknown-linux-musl
+      - x86_64-apple-darwin
+      - aarch64-apple-darwin
+      - x86_64-pc-windows-gnu
+    tool: cargo
+    command: zigbuild
+    flags:
+      - --release
+      - --locked
+    env:
+      - CARGO_TERM_COLOR=always
+
+dockers_v2:
+  - dockerfile: docker/Dockerfile.goreleaser
+    ids:
+      - autofilm
+    images:
+      - '{{ with index .Env "DOCKER_IMAGE" }}{{ . }}{{ else }}akimio/autofilm{{ end }}'
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .IsSnapshot }}latest{{ end }}"
+    labels:
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{- .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - src: LICENSE
+      - src: README.md
+      - src: config/config.example.yaml
+        dst: config.example.yaml
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^build:"
+      - "^ci:"
+      - "^release:"
+      - "^AutoFilm"

@@ -5,6 +5,7 @@ media/*
 __pycache__/*
 .mypy_cache/*
 target/*
+dist/*
 
 .DS_Store
 *bak
