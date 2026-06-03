@@ -169,20 +169,20 @@ jobs:
               }
             }
 
-      - name: Create GitHub pre-release and upload artifacts
-        if: ${{ env.IS_RELEASE != 'true' }}
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.PRE_RELEASE_TAG }}
-          target_commitish: ${{ steps.prerelease_meta.outputs.commit }}
-          name: ${{ steps.prerelease_meta.outputs.version }}
-          prerelease: true
-          generate_release_notes: true
-          files: |
-            dist/*.tar.gz
-            dist/*.zip
-            dist/*checksums*.txt
-            dist/config.yaml
-            LICENSE
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Create GitHub pre-release and upload artifacts
+      #   if: ${{ env.IS_RELEASE != 'true' }}
+      #   uses: softprops/action-gh-release@v2
+      #   with:
+      #     tag_name: ${{ env.PRE_RELEASE_TAG }}
+      #     target_commitish: ${{ steps.prerelease_meta.outputs.commit }}
+      #     name: ${{ steps.prerelease_meta.outputs.version }}
+      #     prerelease: true
+      #     generate_release_notes: true
+      #     files: |
+      #       dist/*.tar.gz
+      #       dist/*.zip
+      #       dist/*checksums*.txt
+      #       dist/config.yaml
+      #       LICENSE
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
