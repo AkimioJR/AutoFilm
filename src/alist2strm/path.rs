@@ -83,7 +83,9 @@ impl AlistPath {
                 target_dir.join(format!("{movie_title}.strm"))
             } else {
                 let relative_path = relative_from_source(bdmv_root, source_dir);
-                target_dir.join(relative_path).join(format!("{movie_title}.strm"))
+                target_dir
+                    .join(relative_path)
+                    .join(format!("{movie_title}.strm"))
             };
         }
 

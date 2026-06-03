@@ -47,4 +47,3 @@ pub fn init(debug: bool) -> Result<LoggingGuard, Box<dyn std::error::Error + Sen
         _file_guard: file_guard,
     })
 }
-

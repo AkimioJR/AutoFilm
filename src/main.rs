@@ -1,5 +1,5 @@
-mod app_info;
 mod alist2strm;
+mod app_info;
 mod config;
 mod extensions;
 mod logging;
@@ -129,7 +129,10 @@ mod tests {
 
     #[test]
     fn normalizes_five_field_cron_with_seconds() {
-        assert_eq!(normalize_cron("0 20 * * *").as_deref(), Some("0 0 20 * * *"));
+        assert_eq!(
+            normalize_cron("0 20 * * *").as_deref(),
+            Some("0 0 20 * * *")
+        );
     }
 
     #[test]
@@ -150,7 +153,10 @@ mod tests {
     fn parses_debug_flag_and_config_path() {
         let args = CliArgs::parse_from(["--debug".to_string(), "config/demo.yaml".to_string()]);
         assert!(args.debug);
-        assert_eq!(args.config_path, std::path::PathBuf::from("config/demo.yaml"));
+        assert_eq!(
+            args.config_path,
+            std::path::PathBuf::from("config/demo.yaml")
+        );
     }
 
     #[test]
