@@ -1,0 +1,34 @@
+name: Unit Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone Repository
+        uses: actions/checkout@v6
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust Dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            alist-client-rs -> alist-client-rs/target
+
+      - name: Test AutoFilm
+        run: cargo test --locked
+
+      - name: Test Alist Client
+        run: cargo test --locked --manifest-path alist-client-rs/Cargo.toml

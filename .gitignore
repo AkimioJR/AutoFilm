@@ -8,5 +8,4 @@ target/*
 
 .DS_Store
 *bak
-*test*
 *pyc*
