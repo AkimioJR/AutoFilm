@@ -1,14 +1,13 @@
 name: Release
 
 on:
-  workflow_dispatch:
   push:
     tags:
       - "v*.*.*"
 
 jobs:
   build-binary:
-    uses: .github/workflows/build-binary.yaml
+    uses: ./.github/workflows/build-binary.yaml
   github-release:
     name: Create GitHub Release
     needs: build-binary
