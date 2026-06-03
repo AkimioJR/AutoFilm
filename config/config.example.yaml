@@ -1,0 +1,59 @@
+alist2strm_tasks:
+  - id: 动漫
+    cron: "0 20 * * *"
+    alist:
+      base_url: http://alist:5244
+      public_url: https://alist.example.com
+      username: admin
+      password: adminadmin
+      otp_code:
+      token:
+    source_dir: /ani
+    target_dir: /media/ani
+    mode: AlistURL
+    flatten_mode: false
+    download:
+      subtitle: false
+      image: false
+      nfo: false
+      other_ext: []
+    overwrite: false
+    sync_server: true
+    sync_ignore: "\\.(nfo|jpg)$"
+    smart_protection:
+      enabled: true
+      threshold: 100
+      grace_scans: 3
+    max_workers: 50
+    max_downloaders: 5
+    wait_time: 0
+
+  - id: 电影
+    cron: "0 0 7 * *"
+    alist:
+      base_url: http://alist.example2.com:5244
+      public_url:
+      username:
+      password:
+      otp_code:
+      token: alist-your-static-token
+    source_dir: /movies
+    target_dir: /media/movies
+    mode: RawURL
+    flatten_mode: false
+    download:
+      subtitle: true
+      image: true
+      nfo: true
+      other_ext:
+        - .zip
+        - .md
+    overwrite: false
+    sync_server: true
+    sync_ignore:
+    smart_protection:
+      enabled: false
+    max_workers: 20
+    max_downloaders: 5
+    wait_time: 0
+

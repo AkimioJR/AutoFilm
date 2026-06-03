@@ -1,46 +1,33 @@
+use crate::alist2strm;
 use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::Path;
 
 #[derive(Debug, Deserialize, Serialize)]
-struct AlistConfig {
-    base_url: Url,
-    username: Option<String>,
-    password: Option<String>,
-    otp_code: Option<String>,
-    token: Option<String>,
-}
-#[derive(Debug, Deserialize, Serialize)]
-struct DownloadOption {
-    subtitle: Bool,
-    image: Bool,
-    nfo: Bool,
-    other_ext: Vec<String>,
+pub struct Config {
+    // Rust 版统一使用 snake_case 根字段；旧 Python 平铺配置不再兼容。
+    #[serde(default)]
+    pub alist2strm_tasks: Vec<alist2strm::Config>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-enum Alist2StrmMode {
-    AlistURL,
-    RawURL,
-    AlistPath,
+impl Config {
+    pub fn load(path: impl AsRef<Path>) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let content = fs::read_to_string(path)?;
+        Ok(serde_yaml::from_str(&content)?)
+    }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-struct Alist2StrmSartProtection {
-    enabled: bool,
-    threshold: u16,
-    grace_scans: u16,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-#[derive(Debug, Deserialize, Serialize)]
-struct Alist2StrmConfig {
-    id: String,
-    cron: String,
-    alist: AlistConfig,
-    source_dir: String,
-    target_dir: String,
-    mode: Alist2StrmMode,
-    flatten_mode: Bool,
-    smart_protection: Alist2StrmSartProtection,
-    max_workers: u16,
-    max_downloaders: u16,
-    wait_time: u16,
+    #[test]
+    fn parses_rust_nested_example_config() {
+        let config: Config = serde_yaml::from_str(include_str!("../config/config.example.yaml"))
+            .expect("example config should parse");
+
+        assert_eq!(config.alist2strm_tasks.len(), 2);
+        assert_eq!(config.alist2strm_tasks[0].alist.base_url, "http://alist:5244");
+        assert!(config.alist2strm_tasks[1].download.subtitle);
+    }
 }
