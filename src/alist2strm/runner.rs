@@ -11,6 +11,7 @@ use thiserror::Error;
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Semaphore;
+use tracing::{debug, info, warn};
 
 use crate::alist2strm::path::{AlistPath, bdmv_root, is_bdmv_file};
 use crate::alist2strm::protection::ProtectionManager;
@@ -62,6 +63,7 @@ impl Alist2Strm {
     pub async fn run(&self) -> Result<()> {
         // 每次 run 都重新创建上下文，确保 token、base_path 和配置是当前值。
         let context = Arc::new(self.create_context().await?);
+        info!(task_id = %self.config.id, source_dir = %self.config.source_dir, "开始扫描 AList 目录");
         let mut processed_local_paths = HashSet::new();
         let mut bdmv_collections: HashMap<String, Vec<AlistPath>> = HashMap::new();
         let mut process_paths = Vec::new();
@@ -79,6 +81,9 @@ impl Alist2Strm {
 
         // 第二阶段为每个 BDMV 目录挑选最大的 m2ts，生成单个电影标题 .strm。
         let bdmv_paths = self.finalize_bdmv_paths(bdmv_collections);
+        if !bdmv_paths.is_empty() {
+            info!(count = bdmv_paths.len(), "开始处理 BDMV 主片文件");
+        }
         for path in &bdmv_paths {
             let local_path = self.local_path(path);
             processed_local_paths.insert(local_path);
@@ -89,6 +94,7 @@ impl Alist2Strm {
             self.cleanup_local_files(&context, processed_local_paths).await?;
         }
 
+        info!(task_id = %self.config.id, "Alist2Strm 扫描处理完成");
         Ok(())
     }
 
@@ -132,6 +138,7 @@ impl Alist2Strm {
         let mut stack = vec![self.config.source_dir.clone()];
 
         while let Some(dir_path) = stack.pop() {
+            debug!(dir_path = %dir_path, "获取 AList 目录文件列表");
             let resp = context.client.fs_list(FsListReq::all(&dir_path)).await?;
             for item in resp.content {
                 let path = AlistPath::from_obj(
@@ -170,15 +177,18 @@ impl Alist2Strm {
             || path.full_path.contains("Thumbs.db")
             || path.full_path.contains(".DS_Store")
         {
+            debug!(path = %path.full_path, "跳过系统文件");
             return Ok(false);
         }
 
         if path.full_path.contains("/BDMV/") && !is_bdmv_file(path) {
+            debug!(path = %path.full_path, "跳过 BDMV 内部非主片候选文件");
             return Ok(false);
         }
 
         let suffix = path.suffix();
         if !context.process_exts.contains(&suffix) {
+            debug!(path = %path.full_path, suffix = %suffix, "文件后缀不在处理列表中");
             return Ok(false);
         }
 
@@ -195,8 +205,10 @@ impl Alist2Strm {
 
         if !self.config.overwrite && local_path.exists() {
             if context.download_exts.contains(&suffix) && companion_file_is_stale(&local_path, path)? {
+                debug!(path = %path.full_path, local_path = %local_path.display(), "伴生文件已过期或大小不一致，重新处理");
                 return Ok(true);
             }
+            debug!(path = %path.full_path, local_path = %local_path.display(), "本地文件已存在，跳过处理");
             return Ok(false);
         }
 
@@ -238,11 +250,14 @@ impl Alist2Strm {
         if local_path.extension().and_then(|ext| ext.to_str()) == Some("strm") {
             // 视频文件写入 .strm 内容；伴生文件则直接下载到本地。
             let Some(content) = self.strm_content(context, &path) else {
+                warn!(path = %path.full_path, "生成 .strm 的内容为空，跳过");
                 return Ok(());
             };
             fs::write(local_path, content).await?;
+            info!(path = %path.full_path, "strm 文件创建成功");
         } else {
             self.download_file(context, &path.download_url(), &local_path).await?;
+            info!(path = %path.full_path, local_path = %local_path.display(), "伴生文件下载成功");
         }
 
         Ok(())
@@ -327,6 +342,7 @@ impl Alist2Strm {
 
             if fs::try_exists(&file_path).await? {
                 fs::remove_file(&file_path).await?;
+                info!(path = %file_path.display(), "删除本地过期文件");
                 remove_empty_parents(file_path.parent(), &self.config.target_dir).await?;
             }
         }
@@ -337,7 +353,13 @@ impl Alist2Strm {
     fn finalize_bdmv_paths(&self, collections: HashMap<String, Vec<AlistPath>>) -> Vec<AlistPath> {
         collections
             .into_values()
-            .filter_map(|paths| paths.into_iter().max_by_key(|path| path.size))
+            .filter_map(|paths| {
+                let selected = paths.into_iter().max_by_key(|path| path.size);
+                if let Some(path) = selected.as_ref() {
+                    info!(path = %path.full_path, size = path.size, "选择 BDMV 最大 m2ts 作为主片");
+                }
+                selected
+            })
             .collect()
     }
 
@@ -470,6 +492,7 @@ async fn remove_empty_parents(parent: Option<&Path>, target_dir: &Path) -> Resul
         }
 
         fs::remove_dir(&dir).await?;
+        info!(path = %dir.display(), "删除空目录");
         current = dir.parent().map(Path::to_path_buf);
     }
     Ok(())
