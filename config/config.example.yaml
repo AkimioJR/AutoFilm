@@ -24,10 +24,10 @@ alist2strm_tasks:
     sync:                                   # 同步远程相关配置
       enabled: true                         # 是否同步服务器删除；开启后远端不存在的本地文件会被删除
       ignore: "\\.(nfo|jpg)$"               # 同步删除时忽略的文件名正则；仅匹配文件名，不匹配完整路径
-    smart_protection:                       # .strm 智能保护，防止 AList 故障导致大量误删
-      enabled: true                         # 是否启用保护（默认 false）
-      threshold: 100                        # 触发保护的待删除 .strm 数量阈值
-      grace_scans: 3                        # 达到阈值后，连续确认多少次才真正删除
+      smart_protection:                     # .strm 智能保护，仅在 sync.enabled 为 true 时生效
+        enabled: true                       # 是否启用保护（默认 false）
+        threshold: 100                      # 触发保护的待删除 .strm 数量阈值
+        grace_scans: 3                      # 达到阈值后，连续确认多少次才真正删除
     max_workers: 50                         # 最大并发处理数，减轻 AList 服务器负载
     max_downloaders: 5                      # 最大同时下载伴生文件数量
     wait_time: 0                            # 遍历目录请求间隔时间，单位秒，用于避免风控
@@ -56,9 +56,8 @@ alist2strm_tasks:
     sync:
       enabled: true
       ignore:
-    smart_protection:
-      enabled: false
+      smart_protection:
+        enabled: false
     max_workers: 20
     max_downloaders: 5
     wait_time: 0
-

@@ -79,6 +79,8 @@ pub struct SyncConfig {
     pub enabled: bool,
     #[serde(default)]
     pub ignore: Option<String>,
+    #[serde(default)]
+    pub smart_protection: Option<SmartProtection>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -101,8 +103,6 @@ pub struct Config {
     pub download: DownloadOption,
     #[serde(default)]
     pub sync: Option<SyncConfig>,
-    #[serde(default)]
-    pub smart_protection: Option<SmartProtection>,
     #[serde(default = "default_max_workers")]
     pub max_workers: usize,
     #[serde(default = "default_max_downloaders")]

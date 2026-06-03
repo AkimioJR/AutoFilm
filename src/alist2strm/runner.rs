@@ -333,12 +333,7 @@ impl Alist2Strm {
             .cloned()
             .collect::<HashSet<_>>();
 
-        if let Some(protection_config) = self
-            .config
-            .smart_protection
-            .as_ref()
-            .filter(|config| config.enabled)
-        {
+        if let Some(protection_config) = self.sync_smart_protection() {
             let strm_to_delete = files_to_delete
                 .iter()
                 .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("strm"))
@@ -445,6 +440,14 @@ impl Alist2Strm {
 
     fn sync_enabled(&self) -> bool {
         self.config.sync.as_ref().is_some_and(|sync| sync.enabled)
+    }
+
+    fn sync_smart_protection(&self) -> Option<&crate::alist2strm::SmartProtection> {
+        self.config
+            .sync
+            .as_ref()
+            .and_then(|sync| sync.smart_protection.as_ref())
+            .filter(|config| config.enabled)
     }
 }
 
