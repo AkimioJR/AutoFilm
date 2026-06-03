@@ -1,0 +1,3 @@
+[submodule "alist-client-rs"]
+	path = alist-client-rs
+	url = https://github.com/AkimioJR/alist-client-rs
