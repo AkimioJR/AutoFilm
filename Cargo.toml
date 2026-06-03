@@ -8,10 +8,14 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
 serde_yaml = "0.9.34"
 alist = { package = "alist-client-rs", path = "alist-client-rs" }
+chrono = "0.4.44"
 futures-util = "0.3.32"
 regex = "1.12.2"
 reqwest = { version = "0.12.24", default-features = false, features = ["http2", "rustls-tls", "stream"] }
 thiserror = "2.0.18"
 tokio = { version = "1.52.3", features = ["fs", "io-util", "macros", "rt-multi-thread", "signal", "time"] }
 tokio-cron-scheduler = "0.15.1"
+tracing = "0.1.44"
+tracing-appender = "0.2.3"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 urlencoding = "2.1.3"
