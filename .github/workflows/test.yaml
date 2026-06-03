@@ -2,6 +2,10 @@ name: Unit Tests
 
 on:
   push:
+    paths:
+      - "**/*.rs"
+      - "Cargo.toml"
+      - "Cargo.lock"
   pull_request:
   workflow_dispatch:
 
