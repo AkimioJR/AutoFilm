@@ -74,6 +74,14 @@ pub struct SmartProtection {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct SyncConfig {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default)]
+    pub ignore: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Config {
     // 任务 ID 用于日志、保护状态文件名等场景。
     #[serde(default)]
@@ -88,13 +96,11 @@ pub struct Config {
     #[serde(default)]
     pub flatten_mode: bool,
     #[serde(default)]
+    pub overwrite: bool,
+    #[serde(default)]
     pub download: DownloadOption,
     #[serde(default)]
-    pub overwrite: bool,
-    #[serde(default = "default_sync_server")]
-    pub sync_server: bool,
-    #[serde(default)]
-    pub sync_ignore: Option<String>,
+    pub sync: Option<SyncConfig>,
     #[serde(default)]
     pub smart_protection: Option<SmartProtection>,
     #[serde(default = "default_max_workers")]
@@ -103,10 +109,6 @@ pub struct Config {
     pub max_downloaders: usize,
     #[serde(default)]
     pub wait_time: f64,
-}
-
-fn default_sync_server() -> bool {
-    true
 }
 
 fn default_max_workers() -> usize {
@@ -166,7 +168,10 @@ where
             .filter(|item| !item.is_empty())
             .map(normalize_ext)
             .collect(),
-        Exts::List(values) => values.into_iter().map(|value| normalize_ext(&value)).collect(),
+        Exts::List(values) => values
+            .into_iter()
+            .map(|value| normalize_ext(&value))
+            .collect(),
     };
     Ok(exts)
 }

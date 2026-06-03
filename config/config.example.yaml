@@ -1,32 +1,36 @@
+# Rust 版配置示例
+# 当前仅实现 Alist2Strm；Ani2Alist 和 LibraryPoster 后续会以独立模块继续扩展。
+
 alist2strm_tasks:
-  - id: 动漫
-    cron: "0 20 * * *"
+  - id: 动漫                                 # 标识 ID，用于日志和 .strm 智能保护状态文件
+    cron: "0 20 * * *"                      # 后台定时任务 Cron 表达式；支持 5 字段，程序会自动补秒字段
     alist:
-      base_url: http://alist:5244
-      public_url: https://alist.example.com
-      username: admin
-      password: adminadmin
-      otp_code:
-      token:
-    source_dir: /ani
-    target_dir: /media/ani
-    mode: AlistURL
-    flatten_mode: false
-    download:
-      subtitle: false
-      image: false
-      nfo: false
-      other_ext: []
-    overwrite: false
-    sync_server: true
-    sync_ignore: "\\.(nfo|jpg)$"
-    smart_protection:
-      enabled: true
-      threshold: 100
-      grace_scans: 3
-    max_workers: 50
-    max_downloaders: 5
-    wait_time: 0
+      base_url: http://alist:5244           # AList 服务器地址；未写协议时会默认补 https://
+      public_url: https://alist.example.com # 公共访问地址，用于 AlistURL 模式生成 .strm 内容（可选）
+      username: admin                       # AList 用户名（使用 token 时可留空）
+      password: adminadmin                  # AList 密码（使用 token 时可留空）
+      otp_code:                             # AList 两步验证验证码（可选）
+      token:                                # AList 永久令牌（可选；填写后无需 username/password）
+    source_dir: /ani                        # AList 服务器上需要扫描的目录
+    target_dir: /media/ani                  # 本地 .strm 和伴生文件输出目录
+    mode: AlistURL                          # .strm 内容模式：AlistURL、RawURL、AlistPath
+    flatten_mode: false                     # 平铺模式；开启后所有 .strm 输出到同一级目录，且不会下载伴生文件
+    overwrite: false                        # 覆盖模式；本地已存在同名文件时是否重新生成/下载
+    download:                               # 下载相关配置
+      subtitle: false                       # 是否下载字幕文件：.ass、.srt、.ssa、.sub
+      image: false                          # 是否下载图片文件：.png、.jpg
+      nfo: false                            # 是否下载 .nfo 文件
+      other_ext: []                         # 自定义下载后缀列表，例如 [".zip", ".md"]
+    sync:                                   # 同步远程相关配置
+      enabled: true                         # 是否同步服务器删除；开启后远端不存在的本地文件会被删除
+      ignore: "\\.(nfo|jpg)$"               # 同步删除时忽略的文件名正则；仅匹配文件名，不匹配完整路径
+    smart_protection:                       # .strm 智能保护，防止 AList 故障导致大量误删
+      enabled: true                         # 是否启用保护（默认 false）
+      threshold: 100                        # 触发保护的待删除 .strm 数量阈值
+      grace_scans: 3                        # 达到阈值后，连续确认多少次才真正删除
+    max_workers: 50                         # 最大并发处理数，减轻 AList 服务器负载
+    max_downloaders: 5                      # 最大同时下载伴生文件数量
+    wait_time: 0                            # 遍历目录请求间隔时间，单位秒，用于避免风控
 
   - id: 电影
     cron: "0 0 7 * *"
@@ -41,6 +45,7 @@ alist2strm_tasks:
     target_dir: /media/movies
     mode: RawURL
     flatten_mode: false
+    overwrite: false
     download:
       subtitle: true
       image: true
@@ -48,9 +53,9 @@ alist2strm_tasks:
       other_ext:
         - .zip
         - .md
-    overwrite: false
-    sync_server: true
-    sync_ignore:
+    sync:
+      enabled: true
+      ignore:
     smart_protection:
       enabled: false
     max_workers: 20

@@ -52,7 +52,7 @@ struct RunContext {
     download_semaphore: Arc<Semaphore>,
     download_exts: HashSet<String>,
     process_exts: HashSet<String>,
-    sync_ignore: Option<Regex>,
+    sync_ignore_pattern: Option<Regex>,
 }
 
 impl Alist2Strm {
@@ -90,8 +90,9 @@ impl Alist2Strm {
         }
         self.process_paths(context.clone(), bdmv_paths).await?;
 
-        if self.config.sync_server {
-            self.cleanup_local_files(&context, processed_local_paths).await?;
+        if self.sync_enabled() {
+            self.cleanup_local_files(&context, processed_local_paths)
+                .await?;
         }
 
         info!(task_id = %self.config.id, "Alist2Strm 扫描处理完成");
@@ -103,12 +104,16 @@ impl Alist2Strm {
         let me = client.me().await?;
         let server_url = normalize_url(&self.config.alist.base_url);
         let download_exts = self.download_exts();
-        let mut process_exts = VIDEO_EXTS.iter().map(|ext| ext.to_string()).collect::<HashSet<_>>();
+        let mut process_exts = VIDEO_EXTS
+            .iter()
+            .map(|ext| ext.to_string())
+            .collect::<HashSet<_>>();
         process_exts.extend(download_exts.iter().cloned());
-        let sync_ignore = self
+        let sync_ignore_pattern = self
             .config
-            .sync_ignore
-            .as_deref()
+            .sync
+            .as_ref()
+            .and_then(|sync| sync.ignore.as_deref())
             .filter(|pattern| !pattern.trim().is_empty())
             .map(Regex::new)
             .transpose()?;
@@ -123,7 +128,7 @@ impl Alist2Strm {
             download_semaphore: Arc::new(Semaphore::new(self.config.max_downloaders.max(1))),
             download_exts,
             process_exts,
-            sync_ignore,
+            sync_ignore_pattern,
         })
     }
 
@@ -153,7 +158,12 @@ impl Alist2Strm {
                     continue;
                 }
 
-                if self.should_process_path(context, &path, processed_local_paths, bdmv_collections)? {
+                if self.should_process_path(
+                    context,
+                    &path,
+                    processed_local_paths,
+                    bdmv_collections,
+                )? {
                     process_paths.push(path);
                 }
             }
@@ -204,7 +214,9 @@ impl Alist2Strm {
         processed_local_paths.insert(local_path.clone());
 
         if !self.config.overwrite && local_path.exists() {
-            if context.download_exts.contains(&suffix) && companion_file_is_stale(&local_path, path)? {
+            if context.download_exts.contains(&suffix)
+                && companion_file_is_stale(&local_path, path)?
+            {
                 debug!(path = %path.full_path, local_path = %local_path.display(), "伴生文件已过期或大小不一致，重新处理");
                 return Ok(true);
             }
@@ -256,7 +268,8 @@ impl Alist2Strm {
             fs::write(local_path, content).await?;
             info!(path = %path.full_path, "strm 文件创建成功");
         } else {
-            self.download_file(context, &path.download_url(), &local_path).await?;
+            self.download_file(context, &path.download_url(), &local_path)
+                .await?;
             info!(path = %path.full_path, local_path = %local_path.display(), "伴生文件下载成功");
         }
 
@@ -278,9 +291,18 @@ impl Alist2Strm {
         }
     }
 
-    async fn download_file(&self, context: &RunContext, url: &str, local_path: &Path) -> Result<()> {
+    async fn download_file(
+        &self,
+        context: &RunContext,
+        url: &str,
+        local_path: &Path,
+    ) -> Result<()> {
         // 下载伴生文件有独立限流，避免字幕/图片批量同步时占满连接。
-        let _permit = context.download_semaphore.acquire().await.expect("semaphore open");
+        let _permit = context
+            .download_semaphore
+            .acquire()
+            .await
+            .expect("semaphore open");
         let response = context.http.get(url).send().await?;
         let status = response.status();
         if status != StatusCode::OK {
@@ -303,14 +325,20 @@ impl Alist2Strm {
         context: &RunContext,
         processed_local_paths: HashSet<PathBuf>,
     ) -> Result<()> {
-        // sync_server 开启时，本地多出来的文件会被清理；可配合保护防止大规模误删。
-        let all_local_files = collect_local_files(&self.config.target_dir, self.config.flatten_mode).await?;
+        // sync.enabled 开启时，本地多出来的文件会被清理；可配合保护防止大规模误删。
+        let all_local_files =
+            collect_local_files(&self.config.target_dir, self.config.flatten_mode).await?;
         let mut files_to_delete = all_local_files
             .difference(&processed_local_paths)
             .cloned()
             .collect::<HashSet<_>>();
 
-        if let Some(protection_config) = self.config.smart_protection.as_ref().filter(|config| config.enabled) {
+        if let Some(protection_config) = self
+            .config
+            .smart_protection
+            .as_ref()
+            .filter(|config| config.enabled)
+        {
             let strm_to_delete = files_to_delete
                 .iter()
                 .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("strm"))
@@ -325,18 +353,25 @@ impl Alist2Strm {
                 .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("strm"))
                 .cloned()
                 .collect::<HashSet<_>>();
-            let mut protection =
-                ProtectionManager::new(self.config.target_dir.clone(), &self.config.id, protection_config).await?;
+            let mut protection = ProtectionManager::new(
+                self.config.target_dir.clone(),
+                &self.config.id,
+                protection_config,
+            )
+            .await?;
             let ready_strm = protection.process(strm_to_delete, &strm_present).await?;
             files_to_delete = other_files.union(&ready_strm).cloned().collect();
         }
 
         for file_path in files_to_delete {
-            if context
-                .sync_ignore
-                .as_ref()
-                .is_some_and(|regex| regex.is_match(file_path.file_name().and_then(|name| name.to_str()).unwrap_or("")))
-            {
+            if context.sync_ignore_pattern.as_ref().is_some_and(|regex| {
+                regex.is_match(
+                    file_path
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or(""),
+                )
+            }) {
                 continue;
             }
 
@@ -389,7 +424,13 @@ impl Alist2Strm {
         if self.config.download.nfo {
             exts.extend(NFO_EXTS.iter().map(|ext| ext.to_string()));
         }
-        exts.extend(self.config.download.other_ext.iter().map(|ext| ext.to_ascii_lowercase()));
+        exts.extend(
+            self.config
+                .download
+                .other_ext
+                .iter()
+                .map(|ext| ext.to_ascii_lowercase()),
+        );
         exts
     }
 
@@ -401,11 +442,19 @@ impl Alist2Strm {
             .filter(|url| !url.trim().is_empty())
             .map(normalize_url)
     }
+
+    fn sync_enabled(&self) -> bool {
+        self.config.sync.as_ref().is_some_and(|sync| sync.enabled)
+    }
 }
 
 fn build_client(config: &AlistConfig) -> Result<Client> {
     let base_url = normalize_url(&config.base_url);
-    if let Some(token) = config.token.as_deref().filter(|token| !token.trim().is_empty()) {
+    if let Some(token) = config
+        .token
+        .as_deref()
+        .filter(|token| !token.trim().is_empty())
+    {
         return Ok(Client::with_token(base_url, token.to_string())?);
     }
 
