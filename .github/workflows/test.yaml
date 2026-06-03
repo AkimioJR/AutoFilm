@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Clone Repository
         uses: actions/checkout@v6
+        with:
+          submodules: recursive
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
