@@ -40,7 +40,7 @@
     ```bash
     docker run -d --name autofilm  -v ./config:/config -v ./media:/media -v ./logs:/logs akimio/autofilm
     ```
-2. Python 环境运行（Python3.12）
+2. Python 环境运行（Python3.13）
     ```bash
     python app/main.py
     ```
@@ -70,6 +70,7 @@
 ![LibraryPoster](./img/LibraryPoster.png)
 
 # 更新日志
+- 2026.6.3：v1.5.1，Alist2Strm 新增 public_url 支持内外网地址分离；新增 .strm 智能保护防止大量误删；重构 HTTP 客户端设计；更新 Docker Python 版本与 Pillow 依赖；更新项目相关链接
 - 2025.9.26：v1.5.0，支持 BDMV 蓝光原盘文件结构，引入 Alist2StrmMode 枚举以简化模式管理，优化 LibraryPoster 对多路径媒体库的处理
 - 2025.7.14：v1.4.0，修复 Ani2Alist 模块时间解析问题，新增 LibraryPoster 美化媒体库封面模块
 - 2025.5.29：v1.3.3，Alist2Strm 模块支持添加删除空目录的功能；提高 Alist V3.45 兼容性；添加 m2ts 视频文件后缀到视频扩展集合；修复视频扩展集合中".wmv"缺失前缀错误
