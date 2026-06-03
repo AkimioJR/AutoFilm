@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build-binary:
+    uses: .github/workflows/build-binary.yaml
+  github-release:
+    name: Create GitHub Release
+    needs: build-binary
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Download release artifact
+        uses: actions/download-artifact@v8
+        with:
+          merge-multiple: true
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          files: |
+            AutoFilm*
+            LICENSE
+            config/config.example.yaml
+            README.md
