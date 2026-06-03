@@ -1,17 +1,24 @@
-FROM python:3.13.9-alpine
+FROM rust:alpine AS builder
+
+WORKDIR /workspace
+
+RUN apk add --no-cache build-base musl-dev
+
+COPY Cargo.toml Cargo.lock ./
+COPY alist-client-rs ./alist-client-rs
+COPY src ./src
+
+RUN cargo build --release --locked
+
+FROM alpine:latest
 
 ENV TZ=Asia/Shanghai
-VOLUME ["/config", "/logs", "/media","/fonts"]
 
-RUN apk update
-RUN apk add --no-cache build-base linux-headers tzdata
+RUN apk add --no-cache ca-certificates tzdata
 
-COPY requirements.txt requirements.txt
-RUN pip install -r requirements.txt && \
-    rm requirements.txt
+COPY --from=builder /workspace/target/release/autofilm /usr/local/bin/autofilm
 
-COPY app /app
+VOLUME ["/config", "/logs", "/media", "/fonts"]
+WORKDIR /
 
-RUN rm -rf /tmp/*
-
-ENTRYPOINT ["python", "/app/main.py"]
+ENTRYPOINT ["/usr/local/bin/autofilm"]
