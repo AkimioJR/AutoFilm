@@ -1,3 +1,4 @@
+mod app_info;
 mod alist2strm;
 mod config;
 mod extensions;
@@ -11,6 +12,8 @@ use tokio_cron_scheduler::{Job, JobScheduler};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    app_info::print_banner();
+
     // Rust 版默认读取 config/config.yaml，也可以通过第一个命令行参数指定配置文件。
     let config_path = env::args()
         .nth(1)
