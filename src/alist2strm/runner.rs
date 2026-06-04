@@ -100,7 +100,7 @@ impl Alist2Strm {
     }
 
     async fn create_context(&self) -> Result<RunContext> {
-        let client = Arc::new(build_client(&self.config.alist, self.config.wait_time)?);
+        let client = Arc::new(build_client(&self.config.alist)?);
         let me = client.me().await?;
         let server_url = normalize_url(&self.config.alist.base_url);
         let download_exts = self.download_exts();
@@ -447,9 +447,10 @@ impl Alist2Strm {
     }
 }
 
-fn build_client(config: &AlistConfig, wait_time: f64) -> Result<Client> {
+fn build_client(config: &AlistConfig) -> Result<Client> {
     let base_url = normalize_url(&config.base_url);
-    let request_interval = (wait_time > 0.0).then(|| Duration::from_secs_f64(wait_time));
+    let request_interval =
+        (config.wait_time > 0.0).then(|| Duration::from_secs_f64(config.wait_time));
     if let Some(token) = config
         .token
         .as_deref()

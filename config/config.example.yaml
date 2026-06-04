@@ -11,6 +11,7 @@ alist2strm_tasks:
       password: adminadmin                  # AList 密码（使用 token 时可留空）
       otp_code:                             # AList 两步验证验证码（可选）
       token:                                # AList 永久令牌（可选；填写后无需 username/password）
+      wait_time: 0                          # AList API 请求最小间隔时间，单位秒；0 表示不限速
     source_dir: /ani                        # AList 服务器上需要扫描的目录
     target_dir: /media/ani                  # 本地 .strm 和伴生文件输出目录
     mode: AlistURL                          # .strm 内容模式：AlistURL、RawURL、AlistPath
@@ -30,7 +31,6 @@ alist2strm_tasks:
         grace_scans: 3                      # 达到阈值后，连续确认多少次才真正删除
     max_workers: 50                         # 最大并发处理数，减轻 AList 服务器负载
     max_downloaders: 5                      # 最大同时下载伴生文件数量
-    wait_time: 0                            # 遍历目录请求间隔时间，单位秒，用于避免风控
 
   - id: 电影
     cron: 0 0 20 * * *
@@ -41,6 +41,7 @@ alist2strm_tasks:
       password:
       otp_code:
       token: alist-your-static-token
+      wait_time: 0.2
     source_dir: /movies
     target_dir: /media/movies
     mode: RawURL
@@ -60,4 +61,3 @@ alist2strm_tasks:
         enabled: false
     max_workers: 20
     max_downloaders: 5
-    wait_time: 0

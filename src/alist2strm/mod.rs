@@ -21,6 +21,8 @@ pub struct AlistConfig {
     pub otp_code: Option<String>,
     #[serde(default)]
     pub token: Option<String>,
+    #[serde(default)]
+    pub wait_time: f64,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -107,8 +109,6 @@ pub struct Config {
     pub max_workers: usize,
     #[serde(default = "default_max_downloaders")]
     pub max_downloaders: usize,
-    #[serde(default)]
-    pub wait_time: f64,
 }
 
 fn default_max_workers() -> usize {

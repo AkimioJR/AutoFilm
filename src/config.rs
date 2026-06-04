@@ -31,6 +31,7 @@ mod tests {
             config.alist2strm_tasks[0].alist.base_url,
             "http://alist:5244"
         );
+        assert_eq!(config.alist2strm_tasks[0].alist.wait_time, 0.0);
         assert!(config.alist2strm_tasks[1].download.subtitle);
         assert!(
             config.alist2strm_tasks[0]
