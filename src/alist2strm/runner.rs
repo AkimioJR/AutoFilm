@@ -100,7 +100,7 @@ impl Alist2Strm {
     }
 
     async fn create_context(&self) -> Result<RunContext> {
-        let client = Arc::new(build_client(&self.config.alist)?);
+        let client = Arc::new(build_client(&self.config.alist, self.config.wait_time)?);
         let me = client.me().await?;
         let server_url = normalize_url(&self.config.alist.base_url);
         let download_exts = self.download_exts();
@@ -166,10 +166,6 @@ impl Alist2Strm {
                 )? {
                     process_paths.push(path);
                 }
-            }
-
-            if self.config.wait_time > 0.0 {
-                tokio::time::sleep(Duration::from_secs_f64(self.config.wait_time)).await;
             }
         }
 
@@ -451,14 +447,16 @@ impl Alist2Strm {
     }
 }
 
-fn build_client(config: &AlistConfig) -> Result<Client> {
+fn build_client(config: &AlistConfig, wait_time: f64) -> Result<Client> {
     let base_url = normalize_url(&config.base_url);
+    let request_interval = (wait_time > 0.0).then(|| Duration::from_secs_f64(wait_time));
     if let Some(token) = config
         .token
         .as_deref()
         .filter(|token| !token.trim().is_empty())
     {
-        return Ok(Client::with_token(base_url, token.to_string())?);
+        return Ok(Client::with_token(base_url, token.to_string())?
+            .with_api_request_interval(request_interval));
     }
 
     let username = config.username.as_deref().filter(|value| !value.is_empty());
@@ -471,7 +469,8 @@ fn build_client(config: &AlistConfig) -> Result<Client> {
                 password.to_string(),
                 config.otp_code.clone(),
             ),
-        )?),
+        )?
+        .with_api_request_interval(request_interval)),
         _ => Err(Error::MissingAuthentication),
     }
 }
