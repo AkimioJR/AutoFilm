@@ -58,10 +58,19 @@ struct RunContext {
 }
 
 impl Alist2Strm {
+    /// 创建一个 Alist2Strm 任务执行器。
+    ///
+    /// 执行器只保存任务配置，不会立即连接 AList 或访问本地文件系统；真正的
+    /// 上下文初始化和扫描处理发生在 `run` 中。
     pub fn new(config: Config) -> Self {
         Self { config }
     }
 
+    /// 执行一次完整的 Alist2Strm 同步任务。
+    ///
+    /// 流程包括创建 AList/HTTP 上下文、扫描远端目录、边扫描边处理普通文件、
+    /// 收集并处理 BDMV 主片、按需清理本地过期文件。单个远端目录或文件失败会
+    /// 记录日志并跳过，初始化和本地清理等关键错误仍会返回给调度器。
     pub async fn run(&self) -> Result<()> {
         // 每次 run 都重新创建上下文，确保 token、base_path 和配置是当前值。
         let context = Arc::new(self.create_context().await?);
@@ -97,6 +106,10 @@ impl Alist2Strm {
         Ok(())
     }
 
+    /// 创建本次运行共享的上下文。
+    ///
+    /// 该函数会构建 AList 客户端、读取当前用户 `base_path`、准备 HTTP 下载
+    /// 客户端、计算需要处理和下载的扩展名集合，并编译同步忽略规则。
     async fn create_context(&self) -> Result<RunContext> {
         let client = Arc::new(build_client(&self.config.alist)?);
         let me = client.me().await?;
@@ -130,6 +143,11 @@ impl Alist2Strm {
         })
     }
 
+    /// 扫描远端目录并立即处理普通文件。
+    ///
+    /// 函数使用显式栈遍历 `source_dir` 下的 AList 目录；扫描到普通文件后会
+    /// 立刻提交到有上限的并发处理队列，避免等全量扫描完成才开始写入本地。
+    /// BDMV 候选文件会先收集到分组中，等待扫描结束后统一选择主片。
     async fn collect_and_process_paths(
         &self,
         context: Arc<RunContext>,
@@ -217,6 +235,11 @@ impl Alist2Strm {
         Ok(())
     }
 
+    /// 判断一个远端路径是否需要进入处理流程。
+    ///
+    /// 函数会过滤系统文件、非目标扩展名、BDMV 内部非主片候选文件，并维护
+    /// `processed_local_paths` 用于后续同步清理。对于本地已存在的文件，
+    /// `overwrite=false` 时会跳过；伴生文件如果过期或大小偏小则仍会重新处理。
     fn should_process_path(
         &self,
         context: &RunContext,
@@ -268,6 +291,11 @@ impl Alist2Strm {
         Ok(true)
     }
 
+    /// 并发处理一组已经确定需要处理的路径。
+    ///
+    /// 该函数主要用于扫描结束后的 BDMV 主片批处理；普通文件在扫描阶段已经
+    /// 通过 `collect_and_process_paths` 边扫描边提交。每个路径的失败会被记录并
+    /// 跳过，不会中断同批次其它路径。
     async fn process_paths(&self, context: Arc<RunContext>, paths: Vec<AlistPath>) -> Result<()> {
         // 用 bounded concurrency 限制并发处理数量，避免压垮 AList 或本地 IO。
         futures_util::stream::iter(paths)
@@ -280,6 +308,10 @@ impl Alist2Strm {
         Ok(())
     }
 
+    /// 包装单路径处理并记录错误。
+    ///
+    /// 该函数把 `process_path` 的错误降级为警告日志，使单个文件的 RawURL 获取、
+    /// `.strm` 写入或伴生文件下载失败不会影响后续路径继续处理。
     async fn process_path_logged(&self, context: Arc<RunContext>, path: AlistPath) {
         let full_path = path.full_path.clone();
         if let Err(err) = self.process_path(&context, path).await {
@@ -292,6 +324,11 @@ impl Alist2Strm {
         }
     }
 
+    /// 处理单个远端文件路径。
+    ///
+    /// 根据配置模式生成 `.strm` 内容或下载伴生文件：`RawURL` 模式会先调用
+    /// `/api/fs/get` 补充原始下载地址；视频文件写入本地 `.strm`，字幕、图片、
+    /// nfo 等伴生文件则从 AList 下载链接保存到本地。
     async fn process_path(&self, context: &RunContext, mut path: AlistPath) -> Result<()> {
         debug!(
             task_id = %self.config.id,
@@ -360,6 +397,11 @@ impl Alist2Strm {
         Ok(())
     }
 
+    /// 生成 `.strm` 文件内容。
+    ///
+    /// `AlistURL` 返回 AList `/d` 下载链接并可替换为 `public_url`；
+    /// `RawURL` 返回上游原始下载地址；`AlistPath` 返回远端路径本身。
+    /// 如果所需信息缺失会返回 `None`，调用方会跳过该文件。
     fn strm_content(&self, context: &RunContext, path: &AlistPath) -> Option<String> {
         // 三种模式对应 Python 版本：AList 下载链接、后端原始链接、AList 路径。
         match self.config.mode {
@@ -375,6 +417,10 @@ impl Alist2Strm {
         }
     }
 
+    /// 下载远端伴生文件到本地路径。
+    ///
+    /// 下载会使用独立信号量限流，避免字幕、图片、nfo 等伴生文件批量同步时
+    /// 占满连接；只有 HTTP 200 会被视为成功，其它状态会作为下载错误返回。
     async fn download_file(
         &self,
         context: &RunContext,
@@ -404,6 +450,11 @@ impl Alist2Strm {
         Ok(())
     }
 
+    /// 清理本地已经不在远端扫描结果中的文件。
+    ///
+    /// 函数会收集目标目录里的本地文件，与本次扫描确认存在的路径做差集；
+    /// 启用智能保护时，大量 `.strm` 删除会先进入宽限确认。删除文件后会尝试
+    /// 清理空父目录，保持目标目录整洁。
     async fn cleanup_local_files(
         &self,
         context: &RunContext,
@@ -464,6 +515,10 @@ impl Alist2Strm {
         Ok(())
     }
 
+    /// 从 BDMV 候选集合中选出每个原盘目录的主片。
+    ///
+    /// 同一个 BDMV 根目录下会选择体积最大的 `.m2ts` 作为主片，最终只生成一个
+    /// 电影标题 `.strm`，避免媒体库识别到多个分段文件。
     fn finalize_bdmv_paths(&self, collections: HashMap<String, Vec<AlistPath>>) -> Vec<AlistPath> {
         collections
             .into_values()
@@ -477,6 +532,10 @@ impl Alist2Strm {
             .collect()
     }
 
+    /// 计算远端路径对应的本地输出路径。
+    ///
+    /// 该函数把任务级别的 `source_dir`、`target_dir`、`flatten_mode` 和 BDMV
+    /// 特殊规则传给路径模型，得到最终要写入或下载的本地文件位置。
     fn local_path(&self, path: &AlistPath) -> PathBuf {
         let bdmv_root = is_bdmv_file(path).then(|| bdmv_root(path)).flatten();
         path.local_path(
@@ -487,6 +546,10 @@ impl Alist2Strm {
         )
     }
 
+    /// 根据下载配置计算需要作为伴生文件保存的扩展名集合。
+    ///
+    /// 平铺模式下不会下载伴生文件；非平铺模式会根据 subtitle/image/nfo 开关和
+    /// `other_ext` 合并出需要额外下载的扩展名。
     fn download_exts(&self) -> HashSet<String> {
         // 平铺模式下不下载伴生文件，与 Python 行为保持一致。
         if self.config.flatten_mode {
@@ -513,6 +576,10 @@ impl Alist2Strm {
         exts
     }
 
+    /// 返回规范化后的公共访问地址。
+    ///
+    /// 当配置了 `public_url` 时，`AlistURL` 模式生成的 `.strm` 内容会使用该地址
+    /// 替换内部 AList 地址，从而支持内外网地址分离。
     fn public_url(&self) -> Option<String> {
         self.config
             .alist
@@ -522,10 +589,18 @@ impl Alist2Strm {
             .map(normalize_url)
     }
 
+    /// 判断是否启用了本地同步清理。
+    ///
+    /// 只有配置中存在 `sync` 且 `enabled=true` 时，任务结束后才会删除本地过期
+    /// 文件。
     fn sync_enabled(&self) -> bool {
         self.config.sync.as_ref().is_some_and(|sync| sync.enabled)
     }
 
+    /// 返回启用状态下的智能删除保护配置。
+    ///
+    /// 该配置只作用于 `.strm` 的大规模删除场景，用于防止远端扫描失败导致本地
+    /// 媒体库被误清空。
     fn sync_smart_protection(&self) -> Option<&crate::alist2strm::SmartProtection> {
         self.config
             .sync
@@ -535,6 +610,10 @@ impl Alist2Strm {
     }
 }
 
+/// 根据配置构建 AList API 客户端。
+///
+/// 优先使用永久 token；未配置 token 时使用用户名、密码和可选 OTP 登录。
+/// 同时会应用请求间隔配置，用于降低对 AList 或上游存储的请求压力。
 fn build_client(config: &AlistConfig) -> Result<Client> {
     let base_url = normalize_url(&config.base_url);
     let request_interval =
@@ -564,6 +643,10 @@ fn build_client(config: &AlistConfig) -> Result<Client> {
     }
 }
 
+/// 规范化 AList 地址。
+///
+/// 函数会去除首尾空白和末尾 `/`；如果用户没有写协议，则默认补 `https://`。
+/// 这样后续拼接 API 地址和下载地址时可以使用稳定格式。
 fn normalize_url(url: &str) -> String {
     let url = url.trim().trim_end_matches('/');
     if url.starts_with("http://") || url.starts_with("https://") {
@@ -573,6 +656,10 @@ fn normalize_url(url: &str) -> String {
     }
 }
 
+/// 判断本地伴生文件是否已经过期或疑似损坏。
+///
+/// 如果本地文件大小小于远端大小，或本地修改时间不晚于远端修改时间，则认为
+/// 需要重新下载。该逻辑只在 `overwrite=false` 且本地文件已存在时用于伴生文件。
 fn companion_file_is_stale(local_path: &Path, remote_path: &AlistPath) -> Result<bool> {
     let metadata = std::fs::metadata(local_path)?;
     if metadata.len() < remote_path.size {
@@ -661,6 +748,11 @@ mod tests {
     }
 }
 
+/// 收集目标目录中的本地文件集合。
+///
+/// 平铺模式只扫描目标目录第一层文件；非平铺模式会递归扫描所有子目录。
+/// 返回结果用于和远端扫描得到的 `processed_local_paths` 比较，找出需要清理的
+/// 过期本地文件。
 async fn collect_local_files(target_dir: &Path, flatten_mode: bool) -> Result<HashSet<PathBuf>> {
     let mut files = HashSet::new();
     if !fs::try_exists(target_dir).await? {
@@ -694,6 +786,10 @@ async fn collect_local_files(target_dir: &Path, flatten_mode: bool) -> Result<Ha
     Ok(files)
 }
 
+/// 从指定父目录开始向上删除空目录。
+///
+/// 删除会在遇到非空目录或到达任务目标目录时停止。该函数用于移除过期文件后
+/// 清理遗留的空目录层级，不会删除 `target_dir` 本身。
 async fn remove_empty_parents(parent: Option<&Path>, target_dir: &Path) -> Result<()> {
     let mut current = parent.map(Path::to_path_buf);
     while let Some(dir) = current {

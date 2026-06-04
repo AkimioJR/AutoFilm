@@ -21,6 +21,9 @@ pub struct AlistPath {
 
 impl AlistPath {
     /// 将 AList `/api/fs/list` 返回的对象转换为运行期路径模型。
+    ///
+    /// 函数会结合父目录和对象名称得到完整远端路径，并保存生成下载链接、
+    /// 判断本地文件是否过期和创建 `.strm` 所需的元数据。
     pub fn from_obj(
         server_url: impl Into<String>,
         base_path: impl Into<String>,
@@ -41,15 +44,28 @@ impl AlistPath {
         }
     }
 
+    /// 为路径对象补充 RawURL 后返回新的路径对象。
+    ///
+    /// RawURL 只能通过 `/api/fs/get` 获取；在 `RawURL` 模式下处理文件前会调用
+    /// 该函数，把详情接口得到的原始下载地址合并到扫描得到的路径模型中。
     pub fn with_raw_url(mut self, raw_url: String) -> Self {
         self.raw_url = Some(raw_url);
         self
     }
 
+    /// 返回文件名的小写扩展名。
+    ///
+    /// 结果包含前导 `.`，没有扩展名时返回空字符串，用于和视频、字幕、图片等
+    /// 扩展名集合直接匹配。
     pub fn suffix(&self) -> String {
         suffix_of(&self.name)
     }
 
+    /// 生成 AList `/d/...` 下载链接。
+    ///
+    /// 该链接遵循 Python 版本的规则：站点地址 + `/d` + 用户 `base_path` +
+    /// 远端完整路径，并在存在签名时附加 `sign` 查询参数。路径组件会做 URL
+    /// 编码，确保中文和空格等字符可用于 `.strm` 内容或伴生文件下载。
     pub fn download_url(&self) -> String {
         // Python 版本的下载链接规则是：server + "/d" + base_path + full_path + sign。
         let abs_path = format!(
@@ -69,6 +85,11 @@ impl AlistPath {
         url
     }
 
+    /// 计算该远端路径对应的本地目标路径。
+    ///
+    /// 非平铺模式会保留 `source_dir` 之下的目录结构；平铺模式只使用文件名。
+    /// 视频文件会转换为 `.strm` 后缀。BDMV 主片会以 BDMV 根目录名生成单个
+    /// 电影标题 `.strm`，避免把整盘结构里的多个 m2ts 都暴露给媒体库。
     pub fn local_path(
         &self,
         source_dir: &str,
@@ -102,6 +123,10 @@ impl AlistPath {
     }
 }
 
+/// 返回文件名的小写扩展名。
+///
+/// 结果包含前导 `.`；文件名没有扩展名时返回空字符串。该函数用于统一处理
+/// AList 返回的文件名和配置中的扩展名匹配。
 pub fn suffix_of(name: &str) -> String {
     match name.rsplit_once('.') {
         Some((_, ext)) => format!(".{}", ext.to_ascii_lowercase()),
@@ -109,11 +134,19 @@ pub fn suffix_of(name: &str) -> String {
     }
 }
 
+/// 判断路径是否是 BDMV 主片候选文件。
+///
+/// 只有 `BDMV/STREAM` 目录下的 `.m2ts` 会作为候选参与后续按大小选择；
+/// BDMV 目录里的其它文件会被跳过，避免产生大量无意义 `.strm`。
 pub fn is_bdmv_file(path: &AlistPath) -> bool {
     // 只处理 BDMV/STREAM 下的 m2ts；其它 BDMV 内部文件全部跳过。
     path.full_path.contains("/BDMV/STREAM/") && path.suffix() == ".m2ts"
 }
 
+/// 提取 BDMV 目录的根路径。
+///
+/// 返回 `/BDMV/` 之前的远端目录，用作同一蓝光原盘内 m2ts 文件的分组键。
+/// 该分组会在扫描结束后选出最大 m2ts 作为主片。
 pub fn bdmv_root(path: &AlistPath) -> Option<String> {
     path.full_path
         .find("/BDMV/")
@@ -121,6 +154,10 @@ pub fn bdmv_root(path: &AlistPath) -> Option<String> {
         .filter(|root| !root.is_empty())
 }
 
+/// 从 BDMV 根路径中提取电影标题。
+///
+/// 标题来自根路径的最后一级目录；如果路径为空或无法提取，则回退为 `BDMV`。
+/// 结果用于生成 BDMV 主片对应的本地 `.strm` 文件名。
 pub fn movie_title_from_bdmv_root(root: &str) -> String {
     root.trim_end_matches('/')
         .rsplit('/')
@@ -130,6 +167,10 @@ pub fn movie_title_from_bdmv_root(root: &str) -> String {
         .to_string()
 }
 
+/// 拼接 AList 父目录和子项名称。
+///
+/// 函数会避免父目录末尾的 `/` 造成双斜杠，并确保根目录下的子项仍以
+/// `/name` 形式表示。
 pub fn join_alist_path(parent: &str, name: &str) -> String {
     let parent = parent.trim_end_matches('/');
     if parent.is_empty() {
@@ -139,6 +180,10 @@ pub fn join_alist_path(parent: &str, name: &str) -> String {
     }
 }
 
+/// 计算远端路径相对 `source_dir` 的本地相对路径。
+///
+/// 非平铺模式下用这个结果保持云端目录结构；如果远端路径不在 `source_dir`
+/// 之下，则使用原路径去掉开头 `/` 后的形式，避免生成绝对本地路径。
 fn relative_from_source(path: &str, source_dir: &str) -> PathBuf {
     // 非平铺模式下，本地目录结构与 source_dir 下的云端结构保持一致。
     let source = source_dir.trim_end_matches('/');
@@ -149,6 +194,9 @@ fn relative_from_source(path: &str, source_dir: &str) -> PathBuf {
     PathBuf::from(relative)
 }
 
+/// 确保路径字符串以 `/` 开头。
+///
+/// 生成 AList 下载链接时需要绝对路径形态；该函数把缺失前导斜杠的路径补齐。
 fn ensure_leading_slash(path: &str) -> String {
     if path.starts_with('/') {
         path.to_string()
@@ -157,6 +205,10 @@ fn ensure_leading_slash(path: &str) -> String {
     }
 }
 
+/// 对远端路径的每个片段做 URL 编码。
+///
+/// 函数按 `/` 拆分路径，只编码各个路径片段本身，从而保留目录分隔符并兼容
+/// 中文、空格、特殊符号等文件名。
 fn encode_path(path: &str) -> String {
     path.split('/')
         .map(urlencoding::encode)

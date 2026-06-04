@@ -23,7 +23,11 @@ struct ProtectionState {
 }
 
 impl ProtectionManager {
-    /// 创建 .strm 保护管理器，并尝试读取上次扫描留下的计数状态。
+    /// 创建 `.strm` 智能删除保护管理器。
+    ///
+    /// 管理器会在目标目录下使用任务 ID 对应的状态文件保存候选删除计数。
+    /// 如果存在上次扫描留下的状态，会尽量加载并延续计数；加载失败则从空状态
+    /// 开始，避免损坏的保护文件阻止同步任务继续运行。
     pub async fn new(target_dir: PathBuf, task_id: &str, config: &SmartProtection) -> Result<Self> {
         let state_file = target_dir.join(format!(".autofilm_strm_{task_id}.json"));
         let protected = load_state(&state_file).await.unwrap_or_default().protected;
@@ -36,6 +40,11 @@ impl ProtectionManager {
         })
     }
 
+    /// 根据本次扫描结果决定哪些 `.strm` 可以真正删除。
+    ///
+    /// 当待删除数量低于阈值时，认为是正常同步差异并立即返回待删除集合；
+    /// 当数量达到阈值时，进入宽限计数，只有连续多次扫描都确认缺失的文件才会
+    /// 返回给清理流程。仍然存在于远端扫描结果中的文件会从保护状态中移除。
     pub async fn process(
         &mut self,
         strm_to_delete: HashSet<PathBuf>,
@@ -78,6 +87,10 @@ impl ProtectionManager {
         Ok(ready)
     }
 
+    /// 将当前保护状态写入磁盘。
+    ///
+    /// 状态记录每个相对路径已连续缺失的次数。写入时先生成临时文件再 rename，
+    /// 尽量避免程序中断或崩溃时留下半截 JSON。
     async fn save(&self) -> Result<()> {
         // 使用临时文件 + rename，尽量避免程序中断时写出半截 JSON。
         if let Some(parent) = self.state_file.parent() {
@@ -97,6 +110,10 @@ impl ProtectionManager {
         Ok(())
     }
 
+    /// 将本地绝对路径转换为目标目录下的相对路径字符串。
+    ///
+    /// 保护状态使用相对路径持久化，避免目标目录移动后状态文件中记录的绝对路径
+    /// 失效；Windows 路径分隔符也会统一转换为 `/`。
     fn to_relative(&self, path: &Path) -> String {
         path.strip_prefix(&self.target_dir)
             .unwrap_or(path)
@@ -105,6 +122,10 @@ impl ProtectionManager {
     }
 }
 
+/// 从保护状态文件读取上次扫描留下的计数。
+///
+/// 返回值包含每个候选 `.strm` 的连续缺失次数。调用方会在读取失败时回退为空
+/// 状态，因此该函数只负责严格解析文件内容。
 async fn load_state(path: &Path) -> Result<ProtectionState> {
     let content = fs::read(path).await?;
     Ok(serde_json::from_slice(&content)?)
