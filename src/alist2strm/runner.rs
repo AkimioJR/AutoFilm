@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use alist::models::fs::{FsGetReq, FsListReq};
 use alist::{Authentication, Client};
-use futures_util::{StreamExt, TryStreamExt};
+use futures_util::StreamExt;
 use regex::Regex;
 use reqwest::StatusCode;
 use thiserror::Error;
@@ -145,7 +145,18 @@ impl Alist2Strm {
 
         while let Some(dir_path) = stack.pop() {
             debug!(dir_path = %dir_path, "获取 AList 目录文件列表");
-            let resp = context.client.fs_list(FsListReq::all(&dir_path)).await?;
+            let resp = match context.client.fs_list(FsListReq::all(&dir_path)).await {
+                Ok(resp) => resp,
+                Err(err) => {
+                    warn!(
+                        task_id = %self.config.id,
+                        dir_path = %dir_path,
+                        error = %err,
+                        "获取 AList 目录文件列表失败，已跳过该目录"
+                    );
+                    continue;
+                }
+            };
             for item in resp.content {
                 let path = AlistPath::from_obj(
                     context.server_url.clone(),
@@ -159,13 +170,20 @@ impl Alist2Strm {
                     continue;
                 }
 
-                if self.should_process_path(
+                match self.should_process_path(
                     context,
                     &path,
                     processed_local_paths,
                     bdmv_collections,
-                )? {
-                    process_paths.push(path);
+                ) {
+                    Ok(true) => process_paths.push(path),
+                    Ok(false) => {}
+                    Err(err) => warn!(
+                        task_id = %self.config.id,
+                        path = %path.full_path,
+                        error = %err,
+                        "判断 AList 路径是否需要处理失败，已跳过该路径"
+                    ),
                 }
             }
         }
@@ -227,12 +245,23 @@ impl Alist2Strm {
     async fn process_paths(&self, context: Arc<RunContext>, paths: Vec<AlistPath>) -> Result<()> {
         // 用 bounded concurrency 限制并发处理数量，避免压垮 AList 或本地 IO。
         futures_util::stream::iter(paths)
-            .map(Ok)
-            .try_for_each_concurrent(self.config.max_workers.max(1), |path| {
+            .for_each_concurrent(self.config.max_workers.max(1), |path| {
                 let context = context.clone();
-                async move { self.process_path(&context, path).await }
+                async move {
+                    let full_path = path.full_path.clone();
+                    if let Err(err) = self.process_path(&context, path).await {
+                        warn!(
+                            task_id = %self.config.id,
+                            path = %full_path,
+                            error = %err,
+                            "处理 AList 路径失败，已跳过该路径"
+                        );
+                    }
+                }
             })
-            .await
+            .await;
+
+        Ok(())
     }
 
     async fn process_path(&self, context: &RunContext, mut path: AlistPath) -> Result<()> {
@@ -497,6 +526,81 @@ fn companion_file_is_stale(local_path: &Path, remote_path: &AlistPath) -> Result
         }
     }
     Ok(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_config(target_dir: PathBuf) -> Config {
+        Config {
+            id: "test".to_string(),
+            cron: None,
+            alist: AlistConfig {
+                base_url: "http://127.0.0.1:5244".to_string(),
+                public_url: None,
+                username: None,
+                password: None,
+                otp_code: None,
+                token: Some("token".to_string()),
+                wait_time: 0.0,
+            },
+            source_dir: "/source".to_string(),
+            target_dir,
+            mode: Mode::AlistURL,
+            flatten_mode: true,
+            overwrite: true,
+            download: Default::default(),
+            sync: None,
+            max_workers: 1,
+            max_downloaders: 1,
+        }
+    }
+
+    fn test_context() -> RunContext {
+        RunContext {
+            client: Arc::new(Client::with_token("http://127.0.0.1:5244", "token").unwrap()),
+            http: reqwest::Client::new(),
+            server_url: "http://127.0.0.1:5244".to_string(),
+            base_path: String::new(),
+            download_semaphore: Arc::new(Semaphore::new(1)),
+            download_exts: HashSet::new(),
+            process_exts: HashSet::new(),
+            sync_ignore_pattern: None,
+        }
+    }
+
+    #[tokio::test]
+    async fn process_paths_logs_item_errors_and_continues() {
+        let unique = format!(
+            "autofilm-process-error-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let target_dir = std::env::temp_dir().join(unique);
+        fs::write(&target_dir, b"not a directory").await.unwrap();
+
+        let runner = Alist2Strm::new(test_config(target_dir.clone()));
+        let context = Arc::new(test_context());
+        let paths = vec![AlistPath {
+            server_url: "http://127.0.0.1:5244".to_string(),
+            base_path: String::new(),
+            full_path: "/source/movie.mkv".to_string(),
+            name: "movie.mkv".to_string(),
+            size: 1,
+            is_dir: false,
+            modified_timestamp: 0,
+            sign: String::new(),
+            raw_url: None,
+        }];
+
+        let result = runner.process_paths(context, paths).await;
+        let _ = fs::remove_file(&target_dir).await;
+
+        assert!(result.is_ok());
+    }
 }
 
 async fn collect_local_files(target_dir: &Path, flatten_mode: bool) -> Result<HashSet<PathBuf>> {
