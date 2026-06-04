@@ -3,7 +3,7 @@ mod app_info;
 mod config;
 mod extensions;
 mod logging;
-use chrono::Utc;
+use chrono::Local;
 
 use std::env;
 use std::path::PathBuf;
@@ -32,6 +32,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         return Ok(());
     }
 
+    let now = Local::now();
+    let tz = now.timezone();
+    info!(local_offset = %now.offset(), "使用本地时区调度任务");
+
     let mut scheduler = JobScheduler::new().await?;
     let mut scheduled_count = 0usize;
 
@@ -47,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         scheduler
             .add(Job::new_async_tz(
                 cron.to_string(),
-                Utc,
+                tz,
                 move |_uuid, _lock| {
                     let task = task.clone();
                     let task_id = task_id.clone();
