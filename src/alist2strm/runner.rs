@@ -5,7 +5,8 @@ use std::time::Duration;
 
 use alist::models::fs::{FsGetReq, FsListReq};
 use alist::{Authentication, Client};
-use futures_util::StreamExt;
+use futures_util::future::{BoxFuture, FutureExt};
+use futures_util::stream::{FuturesUnordered, StreamExt};
 use regex::Regex;
 use reqwest::StatusCode;
 use thiserror::Error;
@@ -67,18 +68,14 @@ impl Alist2Strm {
         info!(task_id = %self.config.id, source_dir = %self.config.source_dir, "开始扫描 AList 目录");
         let mut processed_local_paths = HashSet::new();
         let mut bdmv_collections: HashMap<String, Vec<AlistPath>> = HashMap::new();
-        let mut process_paths = Vec::new();
 
-        // 第一阶段遍历远端文件：普通文件立即加入处理队列，BDMV 文件先收集不处理。
-        self.collect_paths(
-            &context,
+        // 第一阶段边遍历远端文件边处理普通文件；BDMV 文件先收集，扫描结束后再选主片处理。
+        self.collect_and_process_paths(
+            context.clone(),
             &mut processed_local_paths,
             &mut bdmv_collections,
-            &mut process_paths,
         )
         .await?;
-
-        self.process_paths(context.clone(), process_paths).await?;
 
         // 第二阶段为每个 BDMV 目录挑选最大的 m2ts，生成单个电影标题 .strm。
         let bdmv_paths = self.finalize_bdmv_paths(bdmv_collections);
@@ -133,15 +130,16 @@ impl Alist2Strm {
         })
     }
 
-    async fn collect_paths(
+    async fn collect_and_process_paths(
         &self,
-        context: &RunContext,
+        context: Arc<RunContext>,
         processed_local_paths: &mut HashSet<PathBuf>,
         bdmv_collections: &mut HashMap<String, Vec<AlistPath>>,
-        process_paths: &mut Vec<AlistPath>,
     ) -> Result<()> {
         // 使用显式栈递归遍历，避免深层目录导致函数递归过深。
         let mut stack = vec![self.config.source_dir.clone()];
+        let max_workers = self.config.max_workers.max(1);
+        let mut pending: FuturesUnordered<BoxFuture<'_, ()>> = FuturesUnordered::new();
 
         while let Some(dir_path) = stack.pop() {
             debug!(
@@ -187,7 +185,7 @@ impl Alist2Strm {
                 }
 
                 match self.should_process_path(
-                    context,
+                    &context,
                     &path,
                     processed_local_paths,
                     bdmv_collections,
@@ -198,7 +196,10 @@ impl Alist2Strm {
                             path = %path.full_path,
                             "AList 路径加入处理队列"
                         );
-                        process_paths.push(path);
+                        pending.push(self.process_path_logged(context.clone(), path).boxed());
+                        while pending.len() >= max_workers {
+                            pending.next().await;
+                        }
                     }
                     Ok(false) => {}
                     Err(err) => warn!(
@@ -210,6 +211,8 @@ impl Alist2Strm {
                 }
             }
         }
+
+        while pending.next().await.is_some() {}
 
         Ok(())
     }
@@ -270,21 +273,23 @@ impl Alist2Strm {
         futures_util::stream::iter(paths)
             .for_each_concurrent(self.config.max_workers.max(1), |path| {
                 let context = context.clone();
-                async move {
-                    let full_path = path.full_path.clone();
-                    if let Err(err) = self.process_path(&context, path).await {
-                        warn!(
-                            task_id = %self.config.id,
-                            path = %full_path,
-                            error = %err,
-                            "处理 AList 路径失败，已跳过该路径"
-                        );
-                    }
-                }
+                self.process_path_logged(context, path)
             })
             .await;
 
         Ok(())
+    }
+
+    async fn process_path_logged(&self, context: Arc<RunContext>, path: AlistPath) {
+        let full_path = path.full_path.clone();
+        if let Err(err) = self.process_path(&context, path).await {
+            warn!(
+                task_id = %self.config.id,
+                path = %full_path,
+                error = %err,
+                "处理 AList 路径失败，已跳过该路径"
+            );
+        }
     }
 
     async fn process_path(&self, context: &RunContext, mut path: AlistPath) -> Result<()> {
