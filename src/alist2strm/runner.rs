@@ -144,7 +144,11 @@ impl Alist2Strm {
         let mut stack = vec![self.config.source_dir.clone()];
 
         while let Some(dir_path) = stack.pop() {
-            debug!(dir_path = %dir_path, "获取 AList 目录文件列表");
+            debug!(
+                task_id = %self.config.id,
+                dir_path = %dir_path,
+                "正在扫描 AList 目录"
+            );
             let resp = match context.client.fs_list(FsListReq::all(&dir_path)).await {
                 Ok(resp) => resp,
                 Err(err) => {
@@ -157,6 +161,13 @@ impl Alist2Strm {
                     continue;
                 }
             };
+            debug!(
+                task_id = %self.config.id,
+                dir_path = %dir_path,
+                total = resp.total,
+                item_count = resp.content.len(),
+                "AList 目录扫描完成"
+            );
             for item in resp.content {
                 let path = AlistPath::from_obj(
                     context.server_url.clone(),
@@ -166,6 +177,11 @@ impl Alist2Strm {
                 );
 
                 if path.is_dir {
+                    debug!(
+                        task_id = %self.config.id,
+                        dir_path = %path.full_path,
+                        "发现 AList 子目录，加入扫描队列"
+                    );
                     stack.push(path.full_path.clone());
                     continue;
                 }
@@ -176,7 +192,14 @@ impl Alist2Strm {
                     processed_local_paths,
                     bdmv_collections,
                 ) {
-                    Ok(true) => process_paths.push(path),
+                    Ok(true) => {
+                        debug!(
+                            task_id = %self.config.id,
+                            path = %path.full_path,
+                            "AList 路径加入处理队列"
+                        );
+                        process_paths.push(path);
+                    }
                     Ok(false) => {}
                     Err(err) => warn!(
                         task_id = %self.config.id,
@@ -265,8 +288,20 @@ impl Alist2Strm {
     }
 
     async fn process_path(&self, context: &RunContext, mut path: AlistPath) -> Result<()> {
+        debug!(
+            task_id = %self.config.id,
+            path = %path.full_path,
+            mode = ?self.config.mode,
+            "正在处理 AList 路径"
+        );
+
         if self.config.mode == Mode::RawURL && path.raw_url.is_none() {
             // RawURL 只有 `/api/fs/get` 才会返回，遍历列表时按需补取详情。
+            debug!(
+                task_id = %self.config.id,
+                path = %path.full_path,
+                "正在获取 AList 路径详情以生成 RawURL"
+            );
             let detail = context
                 .client
                 .fs_get(FsGetReq {
@@ -281,6 +316,12 @@ impl Alist2Strm {
         }
 
         let local_path = self.local_path(&path);
+        debug!(
+            task_id = %self.config.id,
+            path = %path.full_path,
+            local_path = %local_path.display(),
+            "已计算本地目标路径"
+        );
         if let Some(parent) = local_path.parent() {
             fs::create_dir_all(parent).await?;
         }
@@ -291,9 +332,21 @@ impl Alist2Strm {
                 warn!(path = %path.full_path, "生成 .strm 的内容为空，跳过");
                 return Ok(());
             };
+            debug!(
+                task_id = %self.config.id,
+                path = %path.full_path,
+                local_path = %local_path.display(),
+                "正在写入 strm 文件"
+            );
             fs::write(local_path, content).await?;
             info!(path = %path.full_path, "strm 文件创建成功");
         } else {
+            debug!(
+                task_id = %self.config.id,
+                path = %path.full_path,
+                local_path = %local_path.display(),
+                "正在下载 AList 伴生文件"
+            );
             self.download_file(context, &path.download_url(), &local_path)
                 .await?;
             info!(path = %path.full_path, local_path = %local_path.display(), "伴生文件下载成功");
