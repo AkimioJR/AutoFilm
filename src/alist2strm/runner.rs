@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 
-use alist::{Authentication, Client, FsGetReq, FsListReq};
+use alist::models::fs::{FsGetReq, FsListReq};
+use alist::{Authentication, Client};
 use futures_util::{StreamExt, TryStreamExt};
 use regex::Regex;
 use reqwest::StatusCode;

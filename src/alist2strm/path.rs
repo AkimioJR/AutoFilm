@@ -1,4 +1,4 @@
-use alist::ObjResp;
+use alist::models::fs::ObjResp;
 use std::path::{Path, PathBuf};
 
 use crate::extensions::VIDEO_EXTS;
