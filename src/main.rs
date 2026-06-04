@@ -3,6 +3,7 @@ mod app_info;
 mod config;
 mod extensions;
 mod logging;
+use chrono::Utc;
 
 use std::env;
 use std::path::PathBuf;
@@ -36,7 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     for task in config.alist2strm_tasks {
         let task_id = task.id.clone();
-        let Some(cron) = task.cron.as_deref().and_then(normalize_cron) else {
+        let Some(cron) = task.cron.as_ref() else {
             warn!(task_id = %task_id, "Alist2Strm 任务缺少 cron，已跳过");
             continue;
         };
@@ -44,18 +45,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // tokio-cron-scheduler 使用带秒字段的 cron；normalize_cron 会兼容常见 5 字段写法。
         info!(task_id = %task_id, cron = %cron, "添加 Alist2Strm 定时任务");
         scheduler
-            .add(Job::new_async(cron.as_str(), move |_uuid, _lock| {
-                let task = task.clone();
-                let task_id = task_id.clone();
-                Box::pin(async move {
-                    info!(task_id = %task_id, "开始执行 Alist2Strm 任务");
-                    if let Err(err) = Alist2Strm::new(task).run().await {
-                        error!(task_id = %task_id, error = %err, "Alist2Strm 任务失败");
-                    } else {
-                        info!(task_id = %task_id, "Alist2Strm 任务完成");
-                    }
-                })
-            })?)
+            .add(Job::new_async_tz(
+                cron.to_string(),
+                Utc,
+                move |_uuid, _lock| {
+                    let task = task.clone();
+                    let task_id = task_id.clone();
+                    Box::pin(async move {
+                        info!(task_id = %task_id, "开始执行 Alist2Strm 任务");
+                        if let Err(err) = Alist2Strm::new(task).run().await {
+                            error!(task_id = %task_id, error = %err, "Alist2Strm 任务失败");
+                        } else {
+                            info!(task_id = %task_id, "Alist2Strm 任务完成");
+                        }
+                    })
+                },
+            )?)
             .await?;
         scheduled_count += 1;
     }
@@ -107,47 +112,9 @@ impl CliArgs {
     }
 }
 
-fn normalize_cron(cron: &str) -> Option<String> {
-    let cron = cron.trim();
-    if cron.is_empty() {
-        return None;
-    }
-
-    let fields = cron.split_whitespace().count();
-    match fields {
-        // 兼容 Python crontab 常用的 5 字段格式：分 时 日 月 周。
-        5 => Some(format!("0 {cron}")),
-        // tokio-cron-scheduler 支持带秒字段的 6/7 字段格式。
-        6 | 7 => Some(cron.to_string()),
-        _ => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{CliArgs, normalize_cron};
-
-    #[test]
-    fn normalizes_five_field_cron_with_seconds() {
-        assert_eq!(
-            normalize_cron("0 20 * * *").as_deref(),
-            Some("0 0 20 * * *")
-        );
-    }
-
-    #[test]
-    fn keeps_six_field_cron_unchanged() {
-        assert_eq!(
-            normalize_cron("5 0 20 * * *").as_deref(),
-            Some("5 0 20 * * *")
-        );
-    }
-
-    #[test]
-    fn rejects_empty_or_invalid_cron() {
-        assert_eq!(normalize_cron(""), None);
-        assert_eq!(normalize_cron("* * * *"), None);
-    }
+    use super::CliArgs;
 
     #[test]
     fn parses_debug_flag_and_config_path() {

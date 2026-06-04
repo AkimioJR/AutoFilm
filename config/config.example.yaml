@@ -3,7 +3,7 @@
 
 alist2strm_tasks:
   - id: 动漫                                 # 标识 ID，用于日志和 .strm 智能保护状态文件
-    cron: "0 20 * * *"                      # 后台定时任务 Cron 表达式；支持 5 字段，程序会自动补秒字段
+    cron: 0 0 20 * * *                      # 后台定时任务 Cron 表达式；格式为`<秒> <分> <时> <日> <月> <星期>`
     alist:
       base_url: http://alist:5244           # AList 服务器地址；未写协议时会默认补 https://
       public_url: https://alist.example.com # 公共访问地址，用于 AlistURL 模式生成 .strm 内容（可选）
@@ -33,7 +33,7 @@ alist2strm_tasks:
     wait_time: 0                            # 遍历目录请求间隔时间，单位秒，用于避免风控
 
   - id: 电影
-    cron: "0 0 7 * *"
+    cron: 0 0 20 * * *
     alist:
       base_url: http://alist.example2.com:5244
       public_url:
