@@ -53,19 +53,11 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Read Toolchain Version
-        id: read_rust_toolchain
-        shell: bash
-        run: |
-          channel=$(grep '^channel' rust-toolchain.toml | sed 's/.*= *"\(.*\)"/\1/')
-          echo "value=$channel" >> $GITHUB_OUTPUT
-
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v1
         with:
           command: build
           target: ${{ matrix.platform.target }}
-          toolchain: ${{ steps.read_rust_toolchain.outputs.value }}
           args: "--locked --release"
           strip: true
 
