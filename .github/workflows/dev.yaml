@@ -1,0 +1,30 @@
+name: Dev
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+    paths:
+      - ".github/workflows/dev.yaml"
+      - ".github/workflows/build-binary.yaml"
+      - ".github/workflows/build-docker.yaml"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "src/**"
+      - "alist-client-rs/**"
+      - "config/config.example.yaml"
+      - "docker/Dockerfile.ci"
+
+jobs:
+  build-binary:
+    uses: ./.github/workflows/build-binary.yaml
+
+  build-docker:
+    needs: build-binary
+    uses: ./.github/workflows/build-docker.yaml
+    with:
+      push: true
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}

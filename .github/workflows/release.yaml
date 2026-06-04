@@ -8,9 +8,19 @@ on:
 jobs:
   build-binary:
     uses: ./.github/workflows/build-binary.yaml
+
+  build-docker:
+    needs: build-binary
+    uses: ./.github/workflows/build-docker.yaml
+    with:
+      push: true
+    secrets:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
   github-release:
     name: Create GitHub Release
-    needs: build-binary
+    needs: [build-binary, build-docker]
     runs-on: ubuntu-latest
     permissions:
       contents: write

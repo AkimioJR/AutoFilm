@@ -1,7 +1,0 @@
-**
-
-!Cargo.toml
-!Cargo.lock
-!Dockerfile
-!src/**
-!alist-client-rs/**
