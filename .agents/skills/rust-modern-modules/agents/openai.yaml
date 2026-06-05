@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rust Modern Modules"
+  short_description: "Prefer modern Rust file modules over mod.rs"
+  default_prompt: "Use $rust-modern-modules when creating or refactoring Rust modules."
