@@ -4,8 +4,8 @@ mod config;
 mod extensions;
 mod logging;
 use chrono::Local;
+use clap::Parser;
 
-use std::env;
 use std::path::PathBuf;
 
 use alist2strm::Alist2Strm;
@@ -15,17 +15,18 @@ use tracing::{debug, error, info, warn};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let args = CliArgs::parse();
     app_info::print_banner();
 
-    let args = CliArgs::parse();
-    let _logging_guard = logging::init(args.debug)?;
-    for arg in &args.ignored_args {
-        warn!(arg = %arg, "忽略无法识别的启动参数");
+    if args.show_version {
+        let version_info = serde_json::to_string_pretty(&app_info::VERSION_INFO)?;
+        println!("{version_info}");
+        return Ok(());
     }
 
-    // Rust 版默认读取 config/config.yaml，也可以通过非 --debug 的第一个参数指定配置文件。
-    debug!(config_path = %args.config_path.display(), debug = args.debug, "启动参数解析完成");
-    let config = Config::load(&args.config_path)?;
+    let _logging_guard = logging::init(args.debug)?;
+    debug!(config_path = %args.config.display(), debug = args.debug, "启动参数解析完成");
+    let config = Config::load(&args.config)?;
 
     if config.alist2strm_tasks.is_empty() {
         warn!("未检测到 Alist2Strm 任务配置");
@@ -46,7 +47,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             continue;
         };
 
-        // tokio-cron-scheduler 使用带秒字段的 cron；normalize_cron 会兼容常见 5 字段写法。
         info!(task_id = %task_id, cron = %cron, "添加 Alist2Strm 定时任务");
         scheduler
             .add(Job::new_async_tz(
@@ -84,59 +84,52 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     Ok(())
 }
 
+#[derive(Debug, Parser)]
+#[command(
+    name = app_info::VERSION_INFO.app_name,
+    disable_version_flag = true
+)]
 struct CliArgs {
+    /// 是否启用调试日志
+    #[arg(long, default_value_t = false)]
     debug: bool,
-    config_path: PathBuf,
-    ignored_args: Vec<String>,
-}
 
-impl CliArgs {
-    fn parse() -> Self {
-        Self::parse_from(env::args().skip(1))
-    }
+    /// 指定配置文件路径
+    #[arg(short, long, value_name = "PATH", default_value = "config/config.yaml")]
+    config: PathBuf,
 
-    fn parse_from(args: impl IntoIterator<Item = String>) -> Self {
-        let mut debug = false;
-        let mut config_path = None;
-        let mut ignored_args = Vec::new();
-
-        for arg in args {
-            match arg.as_str() {
-                "--debug" => debug = true,
-                _ if config_path.is_none() => config_path = Some(PathBuf::from(arg)),
-                _ => ignored_args.push(arg),
-            }
-        }
-
-        Self {
-            debug,
-            config_path: config_path.unwrap_or_else(|| PathBuf::from("config/config.yaml")),
-            ignored_args,
-        }
-    }
+    /// 显示版本、Git 与编译信息
+    #[arg(short = 'v', long = "version", default_value_t = false)]
+    show_version: bool,
 }
 
 #[cfg(test)]
 mod tests {
     use super::CliArgs;
+    use clap::Parser;
 
     #[test]
     fn parses_debug_flag_and_config_path() {
-        let args = CliArgs::parse_from(["--debug".to_string(), "config/demo.yaml".to_string()]);
+        let args = CliArgs::parse_from(["autofilm", "--debug", "--config", "config/demo.yaml"]);
         assert!(args.debug);
-        assert_eq!(
-            args.config_path,
-            std::path::PathBuf::from("config/demo.yaml")
-        );
+        assert_eq!(args.config, std::path::PathBuf::from("config/demo.yaml"));
     }
 
     #[test]
-    fn collects_extra_startup_args() {
-        let args = CliArgs::parse_from([
-            "config/demo.yaml".to_string(),
-            "--unknown".to_string(),
-            "extra".to_string(),
-        ]);
-        assert_eq!(args.ignored_args, ["--unknown", "extra"]);
+    fn rejects_positional_config_path() {
+        let result = CliArgs::try_parse_from(["autofilm", "config/demo.yaml"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn defaults_config_path() {
+        let args = CliArgs::parse_from(["autofilm"]);
+        assert_eq!(args.config, std::path::PathBuf::from("config/config.yaml"));
+    }
+
+    #[test]
+    fn parses_version_flag() {
+        let args = CliArgs::parse_from(["autofilm", "--version"]);
+        assert!(args.show_version);
     }
 }
