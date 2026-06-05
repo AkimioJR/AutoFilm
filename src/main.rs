@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         return Ok(());
     }
 
-    let _logging_guard = logging::init(args.debug)?;
+    let _logging_guard = logging::init(args.log_level())?;
     debug!(config_path = %args.config.display(), debug = args.debug, "启动参数解析完成");
     let config = Config::load(&args.config)?;
 
@@ -101,6 +101,16 @@ struct CliArgs {
     /// 显示版本、Git 与编译信息
     #[arg(short = 'v', long = "version", default_value_t = false)]
     show_version: bool,
+}
+
+impl CliArgs {
+    fn log_level(&self) -> tracing::Level {
+        if self.debug {
+            tracing::Level::DEBUG
+        } else {
+            tracing::Level::INFO
+        }
+    }
 }
 
 #[cfg(test)]
