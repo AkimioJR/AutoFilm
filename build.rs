@@ -38,10 +38,6 @@ fn main() {
         "AUTOFILM_GIT_BRANCH",
         git_branch.as_deref().unwrap_or("detached"),
     );
-    set_env(
-        "AUTOFILM_GIT_DIRTY",
-        if git_is_dirty() { "true" } else { "false" },
-    );
 }
 
 fn set_env(key: &str, value: &str) {
@@ -58,12 +54,4 @@ fn command_output(command: &str, args: &[&str]) -> Option<String> {
         .status
         .success()
         .then(|| String::from_utf8_lossy(&output.stdout).trim().to_string())
-}
-
-fn git_is_dirty() -> bool {
-    Command::new("git")
-        .args(["diff", "--quiet", "--ignore-submodules", "HEAD"])
-        .status()
-        .map(|status| !status.success())
-        .unwrap_or(false)
 }
