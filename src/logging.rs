@@ -29,7 +29,8 @@ pub fn init(
     let subscriber = tracing_subscriber::registry();
 
     let console_layer = tracing_subscriber::fmt::layer()
-        .with_target(false)
+        .with_target(true)
+        .with_line_number(true)
         .with_ansi(colorful_log)
         .with_filter(level_filter);
 
@@ -48,7 +49,8 @@ pub fn init(
     let (file_writer, file_guard) = tracing_appender::non_blocking(file_appender);
 
     let file_layer = tracing_subscriber::fmt::layer()
-        .with_target(false)
+        .with_target(true)
+        .with_line_number(true)
         .with_ansi(false)
         .with_writer(file_writer)
         .with_filter(level_filter);
