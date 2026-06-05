@@ -55,8 +55,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // 阻塞主任务，直到收到 Ctrl-C；调度器会在后台按 cron 触发任务。
     tokio::signal::ctrl_c().await?;
-    info!("AutoFilm 收到退出信号");
+    info!("AutoFilm 收到退出信号，正在退出中...");
     scheduler.shutdown().await?;
+    info!("AutoFilm 已成功退出");
     Ok(())
 }
 
