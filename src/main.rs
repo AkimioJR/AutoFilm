@@ -24,7 +24,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         return Ok(());
     }
 
-    let _logging_guard = logging::init(args.log_level(), &args.log_path)?;
+    let tz = args.app_timezone();
+
+    let _logging_guard = logging::init(args.log_level(), &args.log_path, tz)?;
     debug!(
         debug = args.debug,
         config_path = %args.config_path.display(),
@@ -39,7 +41,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         return Ok(());
     }
 
-    let tz = args.app_timezone();
     info!(timezone = %tz, "使用应用时区");
 
     let mut scheduler = JobScheduler::new().await?;
