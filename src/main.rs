@@ -24,9 +24,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         return Ok(());
     }
 
-    let _logging_guard = logging::init(args.log_level())?;
-    debug!(config_path = %args.config.display(), debug = args.debug, "启动参数解析完成");
-    let config = Config::load(&args.config)?;
+    let _logging_guard = logging::init(args.log_level(), &args.log_path)?;
+    debug!(
+        debug = args.debug,
+        config_path = %args.config_path.display(),
+        log_path = %args.log_path.display(),
+        "启动参数解析完成"
+    );
+    let config = Config::load(&args.config_path)?;
 
     if config.alist2strm_tasks.is_empty() {
         warn!("未检测到 Alist2Strm 任务配置");
@@ -95,8 +100,16 @@ struct CliArgs {
     debug: bool,
 
     /// 指定配置文件路径
-    #[arg(short, long, value_name = "PATH", default_value = "config/config.yaml")]
-    config: PathBuf,
+    #[arg(
+        long = "config",
+        value_name = "PATH",
+        default_value = "config/config.yaml"
+    )]
+    config_path: PathBuf,
+
+    /// 指定日志文件目录路径（为空表示禁用文件输出）
+    #[arg(long = "log", value_name = "PATH", default_value = "logs")]
+    log_path: PathBuf,
 
     /// 显示版本、Git 与编译信息
     #[arg(short = 'v', long = "version", default_value_t = false)]
@@ -122,7 +135,10 @@ mod tests {
     fn parses_debug_flag_and_config_path() {
         let args = CliArgs::parse_from(["autofilm", "--debug", "--config", "config/demo.yaml"]);
         assert!(args.debug);
-        assert_eq!(args.config, std::path::PathBuf::from("config/demo.yaml"));
+        assert_eq!(
+            args.config_path,
+            std::path::PathBuf::from("config/demo.yaml")
+        );
     }
 
     #[test]
@@ -134,7 +150,25 @@ mod tests {
     #[test]
     fn defaults_config_path() {
         let args = CliArgs::parse_from(["autofilm"]);
-        assert_eq!(args.config, std::path::PathBuf::from("config/config.yaml"));
+        assert_eq!(
+            args.config_path,
+            std::path::PathBuf::from("config/config.yaml")
+        );
+    }
+
+    #[test]
+    fn defaults_log_path() {
+        let args = CliArgs::parse_from(["autofilm"]);
+        assert_eq!(args.log_path, std::path::PathBuf::from("logs"));
+    }
+
+    #[test]
+    fn parses_custom_log_path() {
+        let args = CliArgs::parse_from(["autofilm", "--log", "/tmp/autofilm-logs"]);
+        assert_eq!(
+            args.log_path,
+            std::path::PathBuf::from("/tmp/autofilm-logs")
+        );
     }
 
     #[test]
