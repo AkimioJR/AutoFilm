@@ -1,4 +1,3 @@
-use std::path::Path;
 use tracing::level_filters::LevelFilter;
 use tracing::{Level, info, warn};
 use tracing_appender::non_blocking::WorkerGuard;
@@ -15,7 +14,7 @@ pub struct LoggingGuard {
 /// `log_path` 指定了日志文件的目录（为空表示禁用文件输出）
 pub fn init(
     level: Level,
-    log_path: &Path,
+    log_path: &str,
 ) -> Result<Option<LoggingGuard>, Box<dyn std::error::Error + Send + Sync>> {
     let level_filter = LevelFilter::from_level(level);
 
@@ -28,16 +27,14 @@ pub fn init(
 
     let subscriber = subscriber.with(console_layer);
 
-    if log_path.as_os_str().is_empty() {
-        warn!("日志文件输出已禁用");
+    if log_path.is_empty() {
         subscriber.init();
+        warn!("日志文件输出已禁用");
         return Ok(None);
     }
 
     let log_path = std::path::absolute(log_path)?;
     std::fs::create_dir_all(&log_path)?;
-
-    info!(log_path = %log_path.display(), "日志文件输出已启用");
 
     // RollingFileAppender 会在进程跨天运行时自动切换到新的日期文件。
     let file_appender = RollingFileAppender::builder()
@@ -55,6 +52,8 @@ pub fn init(
         .with_filter(level_filter);
 
     subscriber.with(file_layer).init();
+
+    info!(log_path = %log_path.display(), "日志文件输出已启用");
 
     Ok(Some(LoggingGuard {
         _file_guard: file_guard,

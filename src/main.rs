@@ -28,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     debug!(
         debug = args.debug,
         config_path = %args.config_path.display(),
-        log_path = %args.log_path.display(),
+        log_path = %args.log_path,
         "启动参数解析完成"
     );
     let config = Config::load(&args.config_path)?;
@@ -107,9 +107,9 @@ struct CliArgs {
     )]
     config_path: PathBuf,
 
-    /// 指定日志文件目录路径（为空表示禁用文件输出）
+    /// 指定日志文件目录路径（为空表示禁用日志文件写入）
     #[arg(long = "log", value_name = "PATH", default_value = "logs")]
-    log_path: PathBuf,
+    log_path: String,
 
     /// 显示版本、Git 与编译信息
     #[arg(short = 'v', long = "version", default_value_t = false)]
