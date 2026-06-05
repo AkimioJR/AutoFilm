@@ -109,8 +109,10 @@ version = "2.0.0"
 dependencies = [
  "alist-client-rs",
  "chrono",
+ "chrono-tz",
  "clap",
  "futures-util",
+ "iana-time-zone",
  "regex",
  "reqwest 0.12.28",
  "serde",

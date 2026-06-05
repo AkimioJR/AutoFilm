@@ -3,7 +3,7 @@ mod app_info;
 mod config;
 mod extensions;
 mod logging;
-use chrono::Local;
+use chrono_tz::Tz;
 use clap::Parser;
 
 use std::path::PathBuf;
@@ -29,6 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         debug = args.debug,
         config_path = %args.config_path.display(),
         log_path = %args.log_path,
+        timezone = ?args.timezone,
         "启动参数解析完成"
     );
     let config = Config::load(&args.config_path)?;
@@ -38,9 +39,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         return Ok(());
     }
 
-    let now = Local::now();
-    let tz = now.timezone();
-    info!(local_offset = %now.offset(), "使用本地时区调度任务");
+    let tz = args.app_timezone();
+    info!(timezone = %tz, "使用应用时区");
 
     let mut scheduler = JobScheduler::new().await?;
     let mut scheduled_count = 0usize;
@@ -111,6 +111,11 @@ struct CliArgs {
     #[arg(long = "log", value_name = "PATH", default_value = "logs")]
     log_path: String,
 
+    /// 指定时区（默认为系统本地时区，或 UTC 作为后备）
+    /// 支持解析 IANA 时区字符串，如 "Asia/Shanghai"、"America/New_York"、 "UTC" 等
+    #[arg(long, value_name = "TZ")]
+    timezone: Option<Tz>,
+
     /// 显示版本、Git 与编译信息
     #[arg(short = 'v', long = "version", default_value_t = false)]
     show_version: bool,
@@ -123,6 +128,12 @@ impl CliArgs {
         } else {
             tracing::Level::INFO
         }
+    }
+
+    fn app_timezone(&self) -> Tz {
+        self.timezone
+            .or_else(|| iana_time_zone::get_timezone().ok()?.parse().ok())
+            .unwrap_or(chrono_tz::UTC)
     }
 }
 
@@ -169,6 +180,36 @@ mod tests {
             args.log_path,
             std::path::PathBuf::from("/tmp/autofilm-logs")
         );
+    }
+
+    #[test]
+    fn defaults_timezone_to_none() {
+        let args = CliArgs::parse_from(["autofilm"]);
+        assert_eq!(args.timezone, None);
+    }
+
+    #[test]
+    fn parses_cli_timezone_shanghai() {
+        let args = CliArgs::parse_from(["autofilm", "--timezone", "Asia/Shanghai"]);
+        assert_eq!(args.timezone, Some(chrono_tz::Asia::Shanghai));
+    }
+
+    #[test]
+    fn parses_cli_timezone_new_york() {
+        let args = CliArgs::parse_from(["autofilm", "--timezone", "America/New_York"]);
+        assert_eq!(args.timezone, Some(chrono_tz::America::New_York));
+    }
+
+    #[test]
+    fn parses_cli_timezone_utc() {
+        let args = CliArgs::parse_from(["autofilm", "--timezone", "UTC"]);
+        assert_eq!(args.timezone, Some(chrono_tz::UTC));
+    }
+
+    #[test]
+    fn rejects_invalid_cli_timezone() {
+        let result = CliArgs::try_parse_from(["autofilm", "--timezone", "Not/AZone"]);
+        assert!(result.is_err());
     }
 
     #[test]

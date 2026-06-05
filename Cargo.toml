@@ -10,6 +10,8 @@ serde_json = "1.0.150"
 serde_yaml = "0.9.34"
 alist = { package = "alist-client-rs", path = "alist-client-rs" }
 chrono = "0.4.45"
+chrono-tz = "0.10"
+iana-time-zone = "0.1"
 futures-util = "0.3.32"
 regex = "1.12.2"
 reqwest = { version = "0.12.24", default-features = false, features = ["http2", "rustls-tls", "stream"] }
