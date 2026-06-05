@@ -1,5 +1,6 @@
 mod daily_file_appender;
 
+use chrono::Utc;
 use chrono_tz::Tz;
 use tracing::level_filters::LevelFilter;
 use tracing::{Level, info, warn};
@@ -9,6 +10,33 @@ use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
 use daily_file_appender::DailyFileAppender;
+use tracing_subscriber::fmt::time::FormatTime;
+
+/// 自定义一个结构体，用来存放 chrono_tz 的时区
+#[derive(Debug, Clone)]
+struct ChronoTzTimer {
+    timezone: chrono_tz::Tz,
+}
+
+impl ChronoTzTimer {
+    fn new(timezone: chrono_tz::Tz) -> Self {
+        Self { timezone }
+    }
+}
+
+// 为我们的结构体实现 tracing-subscriber 的 FormatTime 特征
+impl FormatTime for ChronoTzTimer {
+    fn format_time(&self, w: &mut tracing_subscriber::fmt::format::Writer<'_>) -> std::fmt::Result {
+        // 1. 获取当前的 UTC 时间
+        let utc_now = Utc::now();
+
+        // 2. 将 UTC 时间转换为经由 chrono_tz::Tz 指定的时区时间
+        let local_now = utc_now.with_timezone(&self.timezone);
+
+        // 3. 格式化为你想要的字符串样式并写入日志（例如: 2026-06-05 15:30:00）
+        write!(w, "{}", local_now.format("%+"))
+    }
+}
 
 pub struct LoggingGuard {
     _file_guard: WorkerGuard,
@@ -25,10 +53,12 @@ pub fn init(
     colorful_log: bool,
 ) -> Result<Option<LoggingGuard>, Box<dyn std::error::Error + Send + Sync>> {
     let level_filter = LevelFilter::from_level(level);
+    let tz_timer = ChronoTzTimer::new(tz);
 
     let subscriber = tracing_subscriber::registry();
 
     let console_layer = tracing_subscriber::fmt::layer()
+        .with_timer(tz_timer.clone())
         .with_target(true)
         .with_line_number(true)
         .with_ansi(colorful_log)
@@ -49,6 +79,7 @@ pub fn init(
     let (file_writer, file_guard) = tracing_appender::non_blocking(file_appender);
 
     let file_layer = tracing_subscriber::fmt::layer()
+        .with_timer(tz_timer)
         .with_target(true)
         .with_line_number(true)
         .with_ansi(false)
