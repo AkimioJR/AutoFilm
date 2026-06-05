@@ -31,6 +31,12 @@ pub struct CliArgs {
     #[arg(long, value_name = "TZ")]
     pub timezone: Option<Tz>,
 
+    /// 是否启用彩色日志输出
+    /// `true`（默认）表示启用彩色日志
+    /// `false` 表示禁用彩色日志输出
+    #[arg(long, default_value_t = true)]
+    pub colorful_log: bool,
+
     /// 显示版本、Git 与编译信息
     #[arg(short = 'v', long = "version", default_value_t = false)]
     pub show_version: bool,

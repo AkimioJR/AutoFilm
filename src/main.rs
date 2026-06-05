@@ -24,7 +24,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let tz = args.app_timezone();
 
-    let _logging_guard = logging::init(args.log_level(), &args.log_path, tz)?;
+    let _logging_guard = logging::init(args.log_level(), &args.log_path, tz, args.colorful_log)?;
     debug!(
         debug = args.debug,
         config_path = %args.config_path.display(),

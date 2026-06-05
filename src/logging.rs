@@ -22,6 +22,7 @@ pub fn init(
     level: Level,
     log_path: &str,
     tz: Tz,
+    colorful_log: bool,
 ) -> Result<Option<LoggingGuard>, Box<dyn std::error::Error + Send + Sync>> {
     let level_filter = LevelFilter::from_level(level);
 
@@ -29,7 +30,7 @@ pub fn init(
 
     let console_layer = tracing_subscriber::fmt::layer()
         .with_target(false)
-        .with_ansi(true)
+        .with_ansi(colorful_log)
         .with_filter(level_filter);
 
     let subscriber = subscriber.with(console_layer);
