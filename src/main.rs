@@ -3,15 +3,15 @@ mod app_info;
 mod config;
 mod extensions;
 mod logging;
+mod schedule;
+
 use chrono_tz::Tz;
 use clap::Parser;
 
 use std::path::PathBuf;
 
-use alist2strm::Alist2Strm;
 use config::Config;
-use tokio_cron_scheduler::{Job, JobScheduler};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -43,37 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     info!(timezone = %tz, "使用应用时区");
 
-    let mut scheduler = JobScheduler::new().await?;
-    let mut scheduled_count = 0usize;
-
-    for task in config.alist2strm_tasks {
-        let task_id = task.id.clone();
-        let Some(cron) = task.cron.as_ref() else {
-            warn!(task_id = %task_id, "Alist2Strm 任务缺少 cron，已跳过");
-            continue;
-        };
-
-        info!(task_id = %task_id, cron = %cron, "添加 Alist2Strm 定时任务");
-        scheduler
-            .add(Job::new_async_tz(
-                cron.to_string(),
-                tz,
-                move |_uuid, _lock| {
-                    let task = task.clone();
-                    let task_id = task_id.clone();
-                    Box::pin(async move {
-                        info!(task_id = %task_id, "开始执行 Alist2Strm 任务");
-                        if let Err(err) = Alist2Strm::new(task).run().await {
-                            error!(task_id = %task_id, error = %err, "Alist2Strm 任务失败");
-                        } else {
-                            info!(task_id = %task_id, "Alist2Strm 任务完成");
-                        }
-                    })
-                },
-            )?)
-            .await?;
-        scheduled_count += 1;
-    }
+    let (mut scheduler, scheduled_count) = schedule::create_scheduler(config, tz).await?;
 
     if scheduled_count == 0 {
         warn!("没有可调度的 Alist2Strm 任务");
