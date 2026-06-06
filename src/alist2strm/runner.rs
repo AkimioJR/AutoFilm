@@ -1,10 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::time::Duration;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::{Duration, Instant};
 
 use alist::models::fs::{FsGetReq, FsListReq};
 use alist::{Authentication, Client};
+use chrono::{DateTime, Utc};
 use futures_util::future::{BoxFuture, FutureExt};
 use futures_util::stream::{FuturesUnordered, StreamExt};
 use regex::Regex;
@@ -45,6 +47,118 @@ pub struct Alist2Strm {
     config: Config,
 }
 
+/// 一次 Alist2Strm 运行结束后的结构化总结。
+///
+/// 该结构可直接用于日志，也为后续通知接口保留稳定的数据入口。
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct RunSummary {
+    pub task_id: String,
+    pub source_dir: String,
+    pub target_dir: PathBuf,
+    pub start_time: DateTime<Utc>,
+    pub end_time: DateTime<Utc>,
+    pub duration_millis: u128,
+    pub scanned_dir_count: usize,
+    pub skipped_dir_count: usize,
+    pub discovered_file_count: usize,
+    pub matched_file_count: usize,
+    pub filtered_file_count: usize,
+    pub bdmv_collection_count: usize,
+    pub bdmv_selected_count: usize,
+    pub strm_created_count: usize,
+    pub strm_updated_count: usize,
+    pub strm_skipped_count: usize,
+    pub attachment_downloaded_count: usize,
+    pub attachment_updated_count: usize,
+    pub attachment_skipped_count: usize,
+    pub local_deleted_count: usize,
+    pub local_delete_ignored_count: usize,
+    pub failed_path_count: usize,
+}
+
+#[derive(Debug)]
+struct RunStats {
+    start_time: DateTime<Utc>,
+    started_at: Instant,
+    scanned_dir_count: AtomicUsize,
+    skipped_dir_count: AtomicUsize,
+    discovered_file_count: AtomicUsize,
+    matched_file_count: AtomicUsize,
+    filtered_file_count: AtomicUsize,
+    bdmv_collection_count: AtomicUsize,
+    bdmv_selected_count: AtomicUsize,
+    strm_created_count: AtomicUsize,
+    strm_updated_count: AtomicUsize,
+    strm_skipped_count: AtomicUsize,
+    attachment_downloaded_count: AtomicUsize,
+    attachment_updated_count: AtomicUsize,
+    attachment_skipped_count: AtomicUsize,
+    local_deleted_count: AtomicUsize,
+    local_delete_ignored_count: AtomicUsize,
+    failed_path_count: AtomicUsize,
+}
+
+impl RunStats {
+    fn new() -> Self {
+        Self {
+            start_time: Utc::now(),
+            started_at: Instant::now(),
+            scanned_dir_count: AtomicUsize::new(0),
+            skipped_dir_count: AtomicUsize::new(0),
+            discovered_file_count: AtomicUsize::new(0),
+            matched_file_count: AtomicUsize::new(0),
+            filtered_file_count: AtomicUsize::new(0),
+            bdmv_collection_count: AtomicUsize::new(0),
+            bdmv_selected_count: AtomicUsize::new(0),
+            strm_created_count: AtomicUsize::new(0),
+            strm_updated_count: AtomicUsize::new(0),
+            strm_skipped_count: AtomicUsize::new(0),
+            attachment_downloaded_count: AtomicUsize::new(0),
+            attachment_updated_count: AtomicUsize::new(0),
+            attachment_skipped_count: AtomicUsize::new(0),
+            local_deleted_count: AtomicUsize::new(0),
+            local_delete_ignored_count: AtomicUsize::new(0),
+            failed_path_count: AtomicUsize::new(0),
+        }
+    }
+
+    fn inc(counter: &AtomicUsize) {
+        counter.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn load(counter: &AtomicUsize) -> usize {
+        counter.load(Ordering::Relaxed)
+    }
+
+    fn summarize(&self, config: &Config) -> RunSummary {
+        let end_time = Utc::now();
+        RunSummary {
+            task_id: config.id.clone(),
+            source_dir: config.source_dir.clone(),
+            target_dir: config.target_dir.clone(),
+            start_time: self.start_time,
+            end_time,
+            duration_millis: self.started_at.elapsed().as_millis(),
+            scanned_dir_count: Self::load(&self.scanned_dir_count),
+            skipped_dir_count: Self::load(&self.skipped_dir_count),
+            discovered_file_count: Self::load(&self.discovered_file_count),
+            matched_file_count: Self::load(&self.matched_file_count),
+            filtered_file_count: Self::load(&self.filtered_file_count),
+            bdmv_collection_count: Self::load(&self.bdmv_collection_count),
+            bdmv_selected_count: Self::load(&self.bdmv_selected_count),
+            strm_created_count: Self::load(&self.strm_created_count),
+            strm_updated_count: Self::load(&self.strm_updated_count),
+            strm_skipped_count: Self::load(&self.strm_skipped_count),
+            attachment_downloaded_count: Self::load(&self.attachment_downloaded_count),
+            attachment_updated_count: Self::load(&self.attachment_updated_count),
+            attachment_skipped_count: Self::load(&self.attachment_skipped_count),
+            local_deleted_count: Self::load(&self.local_deleted_count),
+            local_delete_ignored_count: Self::load(&self.local_delete_ignored_count),
+            failed_path_count: Self::load(&self.failed_path_count),
+        }
+    }
+}
+
 #[derive(Debug)]
 struct RunContext {
     client: Arc<Client>,
@@ -55,6 +169,7 @@ struct RunContext {
     download_exts: HashSet<String>,
     process_exts: HashSet<String>,
     sync_ignore_pattern: Option<Regex>,
+    stats: Arc<RunStats>,
 }
 
 impl Alist2Strm {
@@ -73,7 +188,8 @@ impl Alist2Strm {
     /// 记录日志并跳过，初始化和本地清理等关键错误仍会返回给调度器。
     pub async fn run(&self) -> Result<()> {
         // 每次 run 都重新创建上下文，确保 token、base_path 和配置是当前值。
-        let context = Arc::new(self.create_context().await?);
+        let stats = Arc::new(RunStats::new());
+        let context = Arc::new(self.create_context(stats.clone()).await?);
         info!(task_id = %self.config.id, source_dir = %self.config.source_dir, "开始扫描 AList 目录");
         let mut processed_local_paths = HashSet::new();
         let mut bdmv_collections: HashMap<String, Vec<AlistPath>> = HashMap::new();
@@ -88,6 +204,10 @@ impl Alist2Strm {
 
         // 第二阶段为每个 BDMV 目录挑选最大的 m2ts，生成单个电影标题 .strm。
         let bdmv_paths = self.finalize_bdmv_paths(bdmv_collections);
+        context
+            .stats
+            .bdmv_selected_count
+            .store(bdmv_paths.len(), Ordering::Relaxed);
         if !bdmv_paths.is_empty() {
             info!(count = bdmv_paths.len(), "开始处理 BDMV 主片文件");
         }
@@ -102,7 +222,32 @@ impl Alist2Strm {
                 .await?;
         }
 
-        info!(task_id = %self.config.id, "Alist2Strm 扫描处理完成");
+        let summary = stats.summarize(&self.config);
+        info!(
+            task_id = %summary.task_id,
+            source_dir = %summary.source_dir,
+            target_dir = %summary.target_dir.display(),
+            start_time = %summary.start_time.to_rfc3339(),
+            end_time = %summary.end_time.to_rfc3339(),
+            duration_millis = summary.duration_millis,
+            scanned_dir_count = summary.scanned_dir_count,
+            skipped_dir_count = summary.skipped_dir_count,
+            discovered_file_count = summary.discovered_file_count,
+            matched_file_count = summary.matched_file_count,
+            filtered_file_count = summary.filtered_file_count,
+            bdmv_collection_count = summary.bdmv_collection_count,
+            bdmv_selected_count = summary.bdmv_selected_count,
+            strm_created_count = summary.strm_created_count,
+            strm_updated_count = summary.strm_updated_count,
+            strm_skipped_count = summary.strm_skipped_count,
+            attachment_downloaded_count = summary.attachment_downloaded_count,
+            attachment_updated_count = summary.attachment_updated_count,
+            attachment_skipped_count = summary.attachment_skipped_count,
+            local_deleted_count = summary.local_deleted_count,
+            local_delete_ignored_count = summary.local_delete_ignored_count,
+            failed_path_count = summary.failed_path_count,
+            "Alist2Strm 运行总结"
+        );
         Ok(())
     }
 
@@ -110,7 +255,7 @@ impl Alist2Strm {
     ///
     /// 该函数会构建 AList 客户端、读取当前用户 `base_path`、准备 HTTP 下载
     /// 客户端、计算需要处理和下载的扩展名集合，并编译同步忽略规则。
-    async fn create_context(&self) -> Result<RunContext> {
+    async fn create_context(&self, stats: Arc<RunStats>) -> Result<RunContext> {
         let client = Arc::new(build_client(&self.config.alist)?);
         let me = client.me().await?;
         let server_url = normalize_url(&self.config.alist.base_url);
@@ -140,6 +285,7 @@ impl Alist2Strm {
             download_exts,
             process_exts,
             sync_ignore_pattern,
+            stats,
         })
     }
 
@@ -168,6 +314,7 @@ impl Alist2Strm {
             let resp = match context.client.fs_list(FsListReq::all(&dir_path)).await {
                 Ok(resp) => resp,
                 Err(err) => {
+                    RunStats::inc(&context.stats.skipped_dir_count);
                     warn!(
                         task_id = %self.config.id,
                         dir_path = %dir_path,
@@ -177,6 +324,7 @@ impl Alist2Strm {
                     continue;
                 }
             };
+            RunStats::inc(&context.stats.scanned_dir_count);
             debug!(
                 task_id = %self.config.id,
                 dir_path = %dir_path,
@@ -201,6 +349,7 @@ impl Alist2Strm {
                     stack.push(path.full_path.clone());
                     continue;
                 }
+                RunStats::inc(&context.stats.discovered_file_count);
 
                 match self.should_process_path(
                     &context,
@@ -220,12 +369,15 @@ impl Alist2Strm {
                         }
                     }
                     Ok(false) => {}
-                    Err(err) => warn!(
-                        task_id = %self.config.id,
-                        path = %path.full_path,
-                        error = %err,
-                        "判断 AList 路径是否需要处理失败，已跳过该路径"
-                    ),
+                    Err(err) => {
+                        RunStats::inc(&context.stats.failed_path_count);
+                        warn!(
+                            task_id = %self.config.id,
+                            path = %path.full_path,
+                            error = %err,
+                            "判断 AList 路径是否需要处理失败，已跳过该路径"
+                        );
+                    }
                 }
             }
         }
@@ -252,24 +404,29 @@ impl Alist2Strm {
             || path.full_path.contains(".DS_Store")
         {
             debug!(path = %path.full_path, "跳过系统文件");
+            RunStats::inc(&context.stats.filtered_file_count);
             return Ok(false);
         }
 
         if path.full_path.contains("/BDMV/") && !is_bdmv_file(path) {
             debug!(path = %path.full_path, "跳过 BDMV 内部非主片候选文件");
+            RunStats::inc(&context.stats.filtered_file_count);
             return Ok(false);
         }
 
         let suffix = path.suffix();
         if !context.process_exts.contains(&suffix) {
             debug!(path = %path.full_path, suffix = %suffix, "文件后缀不在处理列表中");
+            RunStats::inc(&context.stats.filtered_file_count);
             return Ok(false);
         }
+        RunStats::inc(&context.stats.matched_file_count);
 
         if is_bdmv_file(path) {
             // BDMV 需要等同目录所有 m2ts 都收集完，才能按大小选主片。
             if let Some(root) = bdmv_root(path) {
                 bdmv_collections.entry(root).or_default().push(path.clone());
+                RunStats::inc(&context.stats.bdmv_collection_count);
             }
             return Ok(false);
         }
@@ -285,6 +442,11 @@ impl Alist2Strm {
                 return Ok(true);
             }
             debug!(path = %path.full_path, local_path = %local_path.display(), "本地文件已存在，跳过处理");
+            if local_path.extension().and_then(|ext| ext.to_str()) == Some("strm") {
+                RunStats::inc(&context.stats.strm_skipped_count);
+            } else {
+                RunStats::inc(&context.stats.attachment_skipped_count);
+            }
             return Ok(false);
         }
 
@@ -315,6 +477,7 @@ impl Alist2Strm {
     async fn process_path_logged(&self, context: Arc<RunContext>, path: AlistPath) {
         let full_path = path.full_path.clone();
         if let Err(err) = self.process_path(&context, path).await {
+            RunStats::inc(&context.stats.failed_path_count);
             warn!(
                 task_id = %self.config.id,
                 path = %full_path,
@@ -369,8 +532,10 @@ impl Alist2Strm {
         }
 
         if local_path.extension().and_then(|ext| ext.to_str()) == Some("strm") {
+            let existed_before = fs::try_exists(&local_path).await?;
             // 视频文件写入 .strm 内容；伴生文件则直接下载到本地。
             let Some(content) = self.strm_content(context, &path) else {
+                RunStats::inc(&context.stats.failed_path_count);
                 warn!(path = %path.full_path, "生成 .strm 的内容为空，跳过");
                 return Ok(());
             };
@@ -381,8 +546,14 @@ impl Alist2Strm {
                 "正在写入 strm 文件"
             );
             fs::write(local_path, content).await?;
+            if existed_before {
+                RunStats::inc(&context.stats.strm_updated_count);
+            } else {
+                RunStats::inc(&context.stats.strm_created_count);
+            }
             info!(path = %path.full_path, "strm 文件创建成功");
         } else {
+            let existed_before = fs::try_exists(&local_path).await?;
             debug!(
                 task_id = %self.config.id,
                 path = %path.full_path,
@@ -391,6 +562,11 @@ impl Alist2Strm {
             );
             self.download_file(context, &path.download_url(), &local_path)
                 .await?;
+            if existed_before {
+                RunStats::inc(&context.stats.attachment_updated_count);
+            } else {
+                RunStats::inc(&context.stats.attachment_downloaded_count);
+            }
             info!(path = %path.full_path, local_path = %local_path.display(), "伴生文件下载成功");
         }
 
@@ -502,11 +678,13 @@ impl Alist2Strm {
                         .unwrap_or(""),
                 )
             }) {
+                RunStats::inc(&context.stats.local_delete_ignored_count);
                 continue;
             }
 
             if fs::try_exists(&file_path).await? {
                 fs::remove_file(&file_path).await?;
+                RunStats::inc(&context.stats.local_deleted_count);
                 info!(path = %file_path.display(), "删除本地过期文件");
                 remove_empty_parents(file_path.parent(), &self.config.target_dir).await?;
             }
@@ -712,6 +890,7 @@ mod tests {
             download_exts: HashSet::new(),
             process_exts: HashSet::new(),
             sync_ignore_pattern: None,
+            stats: Arc::new(RunStats::new()),
         }
     }
 
