@@ -15,7 +15,6 @@ use crate::alist2strm::path::AlistPath;
 /// 优先使用永久 token；未配置 token 时使用用户名、密码和可选 OTP 登录。
 /// 同时会应用请求间隔配置，用于降低对 AList 或上游存储的请求压力。
 pub(super) fn build_client(config: &AlistConfig) -> Result<Client> {
-    let base_url = normalize_url(&config.base_url);
     let request_interval =
         (config.wait_time > 0.0).then(|| Duration::from_secs_f64(config.wait_time));
     if let Some(token) = config
@@ -23,7 +22,7 @@ pub(super) fn build_client(config: &AlistConfig) -> Result<Client> {
         .as_deref()
         .filter(|token| !token.trim().is_empty())
     {
-        return Ok(Client::with_token(base_url, token.to_string())?
+        return Ok(Client::with_token(&config.base_url, token.to_string())?
             .with_api_request_interval(request_interval));
     }
 
@@ -31,7 +30,7 @@ pub(super) fn build_client(config: &AlistConfig) -> Result<Client> {
     let password = config.password.as_deref().filter(|value| !value.is_empty());
     match (username, password) {
         (Some(username), Some(password)) => Ok(Client::with_authentication(
-            base_url,
+            &config.base_url,
             Authentication::username_password(
                 username.to_string(),
                 password.to_string(),
@@ -40,19 +39,6 @@ pub(super) fn build_client(config: &AlistConfig) -> Result<Client> {
         )?
         .with_api_request_interval(request_interval)),
         _ => Err(Error::MissingAuthentication),
-    }
-}
-
-/// 规范化 AList 地址。
-///
-/// 函数会去除首尾空白和末尾 `/`；如果用户没有写协议，则默认补 `https://`。
-/// 这样后续拼接 API 地址和下载地址时可以使用稳定格式。
-pub(super) fn normalize_url(url: &str) -> String {
-    let url = url.trim().trim_end_matches('/');
-    if url.starts_with("http://") || url.starts_with("https://") {
-        url.to_string()
-    } else {
-        format!("https://{url}")
     }
 }
 

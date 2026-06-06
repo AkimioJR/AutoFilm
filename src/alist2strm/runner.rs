@@ -16,7 +16,7 @@ use crate::alist2strm::path::{AlistPath, bdmv_root, is_bdmv_file};
 use crate::alist2strm::protection::ProtectionManager;
 use crate::alist2strm::summary::{RunStats, RunSummary};
 use crate::alist2strm::utils::{
-    build_client, collect_local_files, companion_file_is_stale, normalize_url, remove_empty_parents,
+    build_client, collect_local_files, companion_file_is_stale, remove_empty_parents,
 };
 use crate::extensions::{IMAGE_EXTS, NFO_EXTS, SUBTITLE_EXTS, VIDEO_EXTS};
 use tokio::fs;
@@ -102,7 +102,6 @@ impl Alist2Strm {
     async fn create_context(&self, stats: Arc<RunStats>) -> Result<RunContext> {
         let client = Arc::new(build_client(&self.config.alist)?);
         let me = client.me().await?;
-        let server_url = normalize_url(&self.config.alist.base_url);
         let download_exts = self.download_exts();
         let mut process_exts = VIDEO_EXTS
             .iter()
@@ -123,7 +122,7 @@ impl Alist2Strm {
             http: reqwest::Client::builder()
                 .user_agent(format!("AutoFilm/{}", env!("CARGO_PKG_VERSION")))
                 .build()?,
-            server_url,
+            server_url: self.config.alist.base_url.clone(),
             base_path: me.base_path,
             download_semaphore: Arc::new(Semaphore::new(self.config.max_downloaders.max(1))),
             download_exts,
@@ -598,7 +597,7 @@ impl Alist2Strm {
         exts
     }
 
-    /// 返回规范化后的公共访问地址。
+    /// 返回配置中的公共访问地址。
     ///
     /// 当配置了 `public_url` 时，`AlistURL` 模式生成的 `.strm` 内容会使用该地址
     /// 替换内部 AList 地址，从而支持内外网地址分离。
@@ -606,9 +605,9 @@ impl Alist2Strm {
         self.config
             .alist
             .public_url
-            .as_deref()
+            .as_ref()
             .filter(|url| !url.trim().is_empty())
-            .map(normalize_url)
+            .cloned()
     }
 
     /// 判断是否启用了本地同步清理。
