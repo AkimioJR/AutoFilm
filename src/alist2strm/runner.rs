@@ -1,162 +1,31 @@
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::{Duration, Instant};
+use std::sync::{Arc, atomic::Ordering};
 
+use alist::Client;
 use alist::models::fs::{FsGetReq, FsListReq};
-use alist::{Authentication, Client};
-use chrono::{DateTime, Utc};
 use futures_util::future::{BoxFuture, FutureExt};
 use futures_util::stream::{FuturesUnordered, StreamExt};
 use regex::Regex;
 use reqwest::StatusCode;
-use thiserror::Error;
+
+use crate::alist2strm::config::SmartProtectionConfig;
+use crate::alist2strm::config::{Config, Mode};
+use crate::alist2strm::errors::{Error, Result};
+use crate::alist2strm::path::{AlistPath, bdmv_root, is_bdmv_file};
+use crate::alist2strm::protection::ProtectionManager;
+use crate::alist2strm::summary::RunStats;
+use crate::alist2strm::utils::{
+    build_client, collect_local_files, companion_file_is_stale, normalize_url, remove_empty_parents,
+};
+use crate::extensions::{IMAGE_EXTS, NFO_EXTS, SUBTITLE_EXTS, VIDEO_EXTS};
 use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tokio::sync::Semaphore;
 use tracing::{debug, info, warn};
-
-use crate::alist2strm::path::{AlistPath, bdmv_root, is_bdmv_file};
-use crate::alist2strm::protection::ProtectionManager;
-use crate::alist2strm::{AlistConfig, Config, Mode};
-use crate::extensions::{IMAGE_EXTS, NFO_EXTS, SUBTITLE_EXTS, VIDEO_EXTS};
-
-pub type Result<T> = std::result::Result<T, Error>;
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("alist client error: {0}")]
-    Alist(#[from] alist::ClientError),
-    #[error("http error: {0}")]
-    Http(#[from] reqwest::Error),
-    #[error("io error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("json error: {0}")]
-    Json(#[from] serde_json::Error),
-    #[error("regex error: {0}")]
-    Regex(#[from] regex::Error),
-    #[error("missing alist authentication, provide token or username/password")]
-    MissingAuthentication,
-    #[error("download failed with status {status}: {url}")]
-    DownloadStatus { status: StatusCode, url: String },
-}
-
 #[derive(Debug, Clone)]
 pub struct Alist2Strm {
     config: Config,
-}
-
-/// 一次 Alist2Strm 运行结束后的结构化总结。
-///
-/// 该结构可直接用于日志，也为后续通知接口保留稳定的数据入口。
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct RunSummary {
-    pub task_id: String,
-    pub source_dir: String,
-    pub target_dir: PathBuf,
-    pub start_time: DateTime<Utc>,
-    pub end_time: DateTime<Utc>,
-    pub duration_millis: u128,
-    pub scanned_dir_count: usize,
-    pub skipped_dir_count: usize,
-    pub discovered_file_count: usize,
-    pub matched_file_count: usize,
-    pub filtered_file_count: usize,
-    pub bdmv_collection_count: usize,
-    pub bdmv_selected_count: usize,
-    pub strm_created_count: usize,
-    pub strm_updated_count: usize,
-    pub strm_skipped_count: usize,
-    pub attachment_downloaded_count: usize,
-    pub attachment_updated_count: usize,
-    pub attachment_skipped_count: usize,
-    pub local_deleted_count: usize,
-    pub local_delete_ignored_count: usize,
-    pub failed_path_count: usize,
-}
-
-#[derive(Debug)]
-struct RunStats {
-    start_time: DateTime<Utc>,
-    started_at: Instant,
-    scanned_dir_count: AtomicUsize,
-    skipped_dir_count: AtomicUsize,
-    discovered_file_count: AtomicUsize,
-    matched_file_count: AtomicUsize,
-    filtered_file_count: AtomicUsize,
-    bdmv_collection_count: AtomicUsize,
-    bdmv_selected_count: AtomicUsize,
-    strm_created_count: AtomicUsize,
-    strm_updated_count: AtomicUsize,
-    strm_skipped_count: AtomicUsize,
-    attachment_downloaded_count: AtomicUsize,
-    attachment_updated_count: AtomicUsize,
-    attachment_skipped_count: AtomicUsize,
-    local_deleted_count: AtomicUsize,
-    local_delete_ignored_count: AtomicUsize,
-    failed_path_count: AtomicUsize,
-}
-
-impl RunStats {
-    fn new() -> Self {
-        Self {
-            start_time: Utc::now(),
-            started_at: Instant::now(),
-            scanned_dir_count: AtomicUsize::new(0),
-            skipped_dir_count: AtomicUsize::new(0),
-            discovered_file_count: AtomicUsize::new(0),
-            matched_file_count: AtomicUsize::new(0),
-            filtered_file_count: AtomicUsize::new(0),
-            bdmv_collection_count: AtomicUsize::new(0),
-            bdmv_selected_count: AtomicUsize::new(0),
-            strm_created_count: AtomicUsize::new(0),
-            strm_updated_count: AtomicUsize::new(0),
-            strm_skipped_count: AtomicUsize::new(0),
-            attachment_downloaded_count: AtomicUsize::new(0),
-            attachment_updated_count: AtomicUsize::new(0),
-            attachment_skipped_count: AtomicUsize::new(0),
-            local_deleted_count: AtomicUsize::new(0),
-            local_delete_ignored_count: AtomicUsize::new(0),
-            failed_path_count: AtomicUsize::new(0),
-        }
-    }
-
-    fn inc(counter: &AtomicUsize) {
-        counter.fetch_add(1, Ordering::Relaxed);
-    }
-
-    fn load(counter: &AtomicUsize) -> usize {
-        counter.load(Ordering::Relaxed)
-    }
-
-    fn summarize(&self, config: &Config) -> RunSummary {
-        let end_time = Utc::now();
-        RunSummary {
-            task_id: config.id.clone(),
-            source_dir: config.source_dir.clone(),
-            target_dir: config.target_dir.clone(),
-            start_time: self.start_time,
-            end_time,
-            duration_millis: self.started_at.elapsed().as_millis(),
-            scanned_dir_count: Self::load(&self.scanned_dir_count),
-            skipped_dir_count: Self::load(&self.skipped_dir_count),
-            discovered_file_count: Self::load(&self.discovered_file_count),
-            matched_file_count: Self::load(&self.matched_file_count),
-            filtered_file_count: Self::load(&self.filtered_file_count),
-            bdmv_collection_count: Self::load(&self.bdmv_collection_count),
-            bdmv_selected_count: Self::load(&self.bdmv_selected_count),
-            strm_created_count: Self::load(&self.strm_created_count),
-            strm_updated_count: Self::load(&self.strm_updated_count),
-            strm_skipped_count: Self::load(&self.strm_skipped_count),
-            attachment_downloaded_count: Self::load(&self.attachment_downloaded_count),
-            attachment_updated_count: Self::load(&self.attachment_updated_count),
-            attachment_skipped_count: Self::load(&self.attachment_skipped_count),
-            local_deleted_count: Self::load(&self.local_deleted_count),
-            local_delete_ignored_count: Self::load(&self.local_delete_ignored_count),
-            failed_path_count: Self::load(&self.failed_path_count),
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -779,7 +648,7 @@ impl Alist2Strm {
     ///
     /// 该配置只作用于 `.strm` 的大规模删除场景，用于防止远端扫描失败导致本地
     /// 媒体库被误清空。
-    fn sync_smart_protection(&self) -> Option<&crate::alist2strm::SmartProtection> {
+    fn sync_smart_protection(&self) -> Option<&SmartProtectionConfig> {
         self.config
             .sync
             .as_ref()
@@ -788,72 +657,10 @@ impl Alist2Strm {
     }
 }
 
-/// 根据配置构建 AList API 客户端。
-///
-/// 优先使用永久 token；未配置 token 时使用用户名、密码和可选 OTP 登录。
-/// 同时会应用请求间隔配置，用于降低对 AList 或上游存储的请求压力。
-fn build_client(config: &AlistConfig) -> Result<Client> {
-    let base_url = normalize_url(&config.base_url);
-    let request_interval =
-        (config.wait_time > 0.0).then(|| Duration::from_secs_f64(config.wait_time));
-    if let Some(token) = config
-        .token
-        .as_deref()
-        .filter(|token| !token.trim().is_empty())
-    {
-        return Ok(Client::with_token(base_url, token.to_string())?
-            .with_api_request_interval(request_interval));
-    }
-
-    let username = config.username.as_deref().filter(|value| !value.is_empty());
-    let password = config.password.as_deref().filter(|value| !value.is_empty());
-    match (username, password) {
-        (Some(username), Some(password)) => Ok(Client::with_authentication(
-            base_url,
-            Authentication::username_password(
-                username.to_string(),
-                password.to_string(),
-                config.otp_code.clone(),
-            ),
-        )?
-        .with_api_request_interval(request_interval)),
-        _ => Err(Error::MissingAuthentication),
-    }
-}
-
-/// 规范化 AList 地址。
-///
-/// 函数会去除首尾空白和末尾 `/`；如果用户没有写协议，则默认补 `https://`。
-/// 这样后续拼接 API 地址和下载地址时可以使用稳定格式。
-fn normalize_url(url: &str) -> String {
-    let url = url.trim().trim_end_matches('/');
-    if url.starts_with("http://") || url.starts_with("https://") {
-        url.to_string()
-    } else {
-        format!("https://{url}")
-    }
-}
-
-/// 判断本地伴生文件是否已经过期或疑似损坏。
-///
-/// 如果本地文件大小小于远端大小，或本地修改时间不晚于远端修改时间，则认为
-/// 需要重新下载。该逻辑只在 `overwrite=false` 且本地文件已存在时用于伴生文件。
-fn companion_file_is_stale(local_path: &Path, remote_path: &AlistPath) -> Result<bool> {
-    let metadata = std::fs::metadata(local_path)?;
-    if metadata.len() < remote_path.size {
-        return Ok(true);
-    }
-    if let Ok(modified) = metadata.modified() {
-        if let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH) {
-            return Ok(duration.as_secs() as i64 <= remote_path.modified_timestamp);
-        }
-    }
-    Ok(false)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::alist2strm::config::AlistConfig;
 
     fn test_config(target_dir: PathBuf) -> Config {
         Config {
@@ -925,65 +732,4 @@ mod tests {
 
         assert!(result.is_ok());
     }
-}
-
-/// 收集目标目录中的本地文件集合。
-///
-/// 平铺模式只扫描目标目录第一层文件；非平铺模式会递归扫描所有子目录。
-/// 返回结果用于和远端扫描得到的 `processed_local_paths` 比较，找出需要清理的
-/// 过期本地文件。
-async fn collect_local_files(target_dir: &Path, flatten_mode: bool) -> Result<HashSet<PathBuf>> {
-    let mut files = HashSet::new();
-    if !fs::try_exists(target_dir).await? {
-        return Ok(files);
-    }
-
-    if flatten_mode {
-        let mut entries = fs::read_dir(target_dir).await?;
-        while let Some(entry) = entries.next_entry().await? {
-            let path = entry.path();
-            if entry.file_type().await?.is_file() {
-                files.insert(path);
-            }
-        }
-        return Ok(files);
-    }
-
-    let mut dirs = vec![target_dir.to_path_buf()];
-    while let Some(dir) = dirs.pop() {
-        let mut entries = fs::read_dir(dir).await?;
-        while let Some(entry) = entries.next_entry().await? {
-            let file_type = entry.file_type().await?;
-            let path = entry.path();
-            if file_type.is_dir() {
-                dirs.push(path);
-            } else if file_type.is_file() {
-                files.insert(path);
-            }
-        }
-    }
-    Ok(files)
-}
-
-/// 从指定父目录开始向上删除空目录。
-///
-/// 删除会在遇到非空目录或到达任务目标目录时停止。该函数用于移除过期文件后
-/// 清理遗留的空目录层级，不会删除 `target_dir` 本身。
-async fn remove_empty_parents(parent: Option<&Path>, target_dir: &Path) -> Result<()> {
-    let mut current = parent.map(Path::to_path_buf);
-    while let Some(dir) = current {
-        if dir == target_dir {
-            break;
-        }
-
-        let mut entries = fs::read_dir(&dir).await?;
-        if entries.next_entry().await?.is_some() {
-            break;
-        }
-
-        fs::remove_dir(&dir).await?;
-        info!(path = %dir.display(), "删除空目录");
-        current = dir.parent().map(Path::to_path_buf);
-    }
-    Ok(())
 }

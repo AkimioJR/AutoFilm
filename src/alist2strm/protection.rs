@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
 
-use crate::alist2strm::SmartProtection;
-use crate::alist2strm::runner::Result;
+use crate::alist2strm::config::SmartProtectionConfig;
+use crate::alist2strm::errors::Result;
 
 #[derive(Debug)]
 pub struct ProtectionManager {
@@ -28,7 +28,11 @@ impl ProtectionManager {
     /// 管理器会在目标目录下使用任务 ID 对应的状态文件保存候选删除计数。
     /// 如果存在上次扫描留下的状态，会尽量加载并延续计数；加载失败则从空状态
     /// 开始，避免损坏的保护文件阻止同步任务继续运行。
-    pub async fn new(target_dir: PathBuf, task_id: &str, config: &SmartProtection) -> Result<Self> {
+    pub async fn new(
+        target_dir: PathBuf,
+        task_id: &str,
+        config: &SmartProtectionConfig,
+    ) -> Result<Self> {
         let state_file = target_dir.join(format!(".autofilm_strm_{task_id}.json"));
         let protected = load_state(&state_file).await.unwrap_or_default().protected;
         Ok(Self {
@@ -145,7 +149,7 @@ mod tests {
         let target_dir = std::env::temp_dir().join(format!("autofilm-protection-{unique}"));
         fs::create_dir_all(&target_dir).await.unwrap();
 
-        let config = SmartProtection {
+        let config = SmartProtectionConfig {
             enabled: true,
             threshold: 1,
             grace_scans: 2,
