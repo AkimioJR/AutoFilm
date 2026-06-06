@@ -54,7 +54,9 @@ pub async fn create_scheduler(
                 }
             },
         };
-        let server_url = alist_config.base_url.clone();
+        let server_url = alist_config
+            .public_url
+            .unwrap_or_else(|| alist_config.base_url.clone());
         let runner = Arc::new(Alist2Strm::new(task, client, server_url));
         scheduler
             .add(Job::new_async_tz(cron, tz, move |_uuid, _lock| {
