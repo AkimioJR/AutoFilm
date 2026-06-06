@@ -1,4 +1,4 @@
-use crate::alist2strm;
+use crate::{alist, alist2strm};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -6,6 +6,8 @@ use std::path::Path;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
     // Rust 版统一使用 snake_case 根字段；旧 Python 平铺配置不再兼容。
+    #[serde(default)]
+    pub alist: Vec<alist::AlistConfig>,
     #[serde(default)]
     pub alist2strm_tasks: Vec<alist2strm::Config>,
 }
@@ -27,11 +29,11 @@ mod tests {
             .expect("example config should parse");
 
         assert_eq!(config.alist2strm_tasks.len(), 2);
-        assert_eq!(
-            config.alist2strm_tasks[0].alist.base_url,
-            "http://alist:5244"
-        );
-        assert_eq!(config.alist2strm_tasks[0].alist.wait_time, 0.0);
+        assert_eq!(config.alist.len(), 2);
+        assert_eq!(config.alist[0].id, "我的Alist");
+        assert_eq!(config.alist[0].base_url, "http://alist:5244");
+        assert_eq!(config.alist[0].wait_time, 0.0);
+        assert_eq!(config.alist2strm_tasks[0].alist, "我的Alist");
         assert!(config.alist2strm_tasks[1].download.subtitle);
         assert!(
             config.alist2strm_tasks[0]

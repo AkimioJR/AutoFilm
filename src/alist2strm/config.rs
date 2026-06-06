@@ -2,24 +2,6 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct AlistConfig {
-    // AList 服务地址，允许不写协议；运行时会默认补 https://。
-    pub base_url: String,
-    #[serde(default)]
-    pub public_url: Option<String>,
-    #[serde(default)]
-    pub username: Option<String>,
-    #[serde(default)]
-    pub password: Option<String>,
-    #[serde(default)]
-    pub otp_code: Option<String>,
-    #[serde(default)]
-    pub token: Option<String>,
-    #[serde(default)]
-    pub wait_time: f64,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DownloadOption {
     #[serde(default)]
     pub subtitle: bool,
@@ -94,7 +76,7 @@ pub struct Config {
     pub id: String,
     #[serde(default)]
     pub cron: Option<String>,
-    pub alist: AlistConfig,
+    pub alist: String,
     pub source_dir: String,
     pub target_dir: PathBuf,
     #[serde(default)]

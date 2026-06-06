@@ -1,17 +1,29 @@
 # Rust 版配置示例
 # 当前仅实现 Alist2Strm；Ani2Alist 和 LibraryPoster 后续会以独立模块继续扩展。
 
+alist:
+  - id: 我的Alist                           # 标识 ID，用于关联 AList 客户端对象
+    base_url: http://alist:5244             # AList 服务器地址；未写协议时会默认补 https://
+    public_url: https://alist.example.com   # 公共访问地址，用于 AlistURL 模式生成 .strm 内容（可选）
+    username: admin                         # AList 用户名（使用 token 时可留空）
+    password: adminadmin                    # AList 密码（使用 token 时可留空）
+    otp_code:                               # AList 两步验证验证码（可选）
+    token:                                  # AList 永久令牌（可选；填写后无需 username/password）
+    wait_time: 0                            # AList API 请求最小间隔时间，单位秒；0 表示不限速
+
+  - id: 使用Token认证的Alist
+    base_url: http://alist.com:5244
+    public_url:
+    username:
+    password:
+    otp_code:
+    token: alist-your-static-token
+    wait_time: 0.2
+
 alist2strm_tasks:
   - id: 动漫                                 # 标识 ID，用于日志和 .strm 智能保护状态文件
     cron: 0 0 20 * * *                      # 后台定时任务 Cron 表达式；格式为`<秒> <分> <时> <日> <月> <星期>`
-    alist:
-      base_url: http://alist:5244           # AList 服务器地址；未写协议时会默认补 https://
-      public_url: https://alist.example.com # 公共访问地址，用于 AlistURL 模式生成 .strm 内容（可选）
-      username: admin                       # AList 用户名（使用 token 时可留空）
-      password: adminadmin                  # AList 密码（使用 token 时可留空）
-      otp_code:                             # AList 两步验证验证码（可选）
-      token:                                # AList 永久令牌（可选；填写后无需 username/password）
-      wait_time: 0                          # AList API 请求最小间隔时间，单位秒；0 表示不限速
+    alist: 我的Alist                         # 关联上面定义的 AList 客户端 ID（可以多个任务关联同一个 AList 客户端实现复用）
     source_dir: /ani                        # AList 服务器上需要扫描的目录
     target_dir: /media/ani                  # 本地 .strm 和伴生文件输出目录
     mode: AlistURL                          # .strm 内容模式：AlistURL、RawURL、AlistPath
@@ -34,14 +46,7 @@ alist2strm_tasks:
 
   - id: 电影
     cron: 0 0 20 * * *
-    alist:
-      base_url: http://alist.example2.com:5244
-      public_url:
-      username:
-      password:
-      otp_code:
-      token: alist-your-static-token
-      wait_time: 0.2
+    alist: 使用Token认证的Alist
     source_dir: /movies
     target_dir: /media/movies
     mode: RawURL

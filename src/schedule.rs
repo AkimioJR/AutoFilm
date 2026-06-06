@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use alist::Client;
 
-use crate::alist2strm::{Alist2Strm, build_client};
+use crate::alist::build_client;
+use crate::alist2strm::Alist2Strm;
 use crate::config::Config;
 use tokio_cron_scheduler::{Job, JobScheduler, JobSchedulerError};
 use tracing::{error, info, warn};
@@ -16,6 +17,11 @@ pub async fn create_scheduler(
     let scheduler = JobScheduler::new().await?;
     let mut scheduled_count = 0usize;
     let mut alist_clients: HashMap<String, Arc<Client>> = HashMap::new();
+    let alist_configs = config
+        .alist
+        .into_iter()
+        .map(|alist| (alist.id.clone(), alist))
+        .collect::<HashMap<_, _>>();
 
     for task in config.alist2strm_tasks {
         let task_id = task.id.clone();
@@ -25,21 +31,21 @@ pub async fn create_scheduler(
         };
 
         info!(task_id = %task_id, cron = %cron, "添加 Alist2Strm 定时任务");
-        let client_key = format!(
-            "{}\n{}\n{}\n{}\n{}\n{}",
-            task.alist.base_url,
-            task.alist.token.as_deref().unwrap_or(""),
-            task.alist.username.as_deref().unwrap_or(""),
-            task.alist.password.as_deref().unwrap_or(""),
-            task.alist.otp_code.as_deref().unwrap_or(""),
-            task.alist.wait_time,
-        );
-        let client = match alist_clients.get(&client_key) {
+        let Some(alist_config) = alist_configs.get(&task.alist).cloned() else {
+            error!(
+                task_id = %task_id,
+                alist = %task.alist,
+                "Alist2Strm 任务引用的 AList 客户端不存在，已跳过任务"
+            );
+            continue;
+        };
+
+        let client = match alist_clients.get(&alist_config.id) {
             Some(client) => client.clone(),
-            None => match build_client(&task.alist) {
+            None => match build_client(&alist_config) {
                 Ok(client) => {
                     let client = Arc::new(client);
-                    alist_clients.insert(client_key, client.clone());
+                    alist_clients.insert(alist_config.id.clone(), client.clone());
                     client
                 }
                 Err(err) => {
@@ -48,7 +54,8 @@ pub async fn create_scheduler(
                 }
             },
         };
-        let runner = Arc::new(Alist2Strm::new(task, client));
+        let server_url = alist_config.base_url.clone();
+        let runner = Arc::new(Alist2Strm::new(task, client, server_url));
         scheduler
             .add(Job::new_async_tz(cron, tz, move |_uuid, _lock| {
                 let runner = runner.clone();

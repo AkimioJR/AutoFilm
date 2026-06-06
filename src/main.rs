@@ -1,3 +1,4 @@
+mod alist;
 mod alist2strm;
 mod app_info;
 mod args;

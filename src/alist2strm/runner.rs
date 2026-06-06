@@ -9,8 +9,7 @@ use futures_util::stream::{FuturesUnordered, StreamExt};
 use regex::Regex;
 use reqwest::StatusCode;
 
-use crate::alist2strm::config::SmartProtectionConfig;
-use crate::alist2strm::config::{Config, Mode};
+use crate::alist2strm::config::{Config, Mode, SmartProtectionConfig};
 use crate::alist2strm::errors::{Error, Result};
 use crate::alist2strm::path::{AlistPath, bdmv_root, is_bdmv_file};
 use crate::alist2strm::protection::ProtectionManager;
@@ -27,6 +26,7 @@ use tracing::{debug, info, warn};
 pub struct Alist2Strm {
     config: Config,
     client: Arc<Client>,
+    server_url: String,
 }
 
 #[derive(Debug)]
@@ -47,8 +47,12 @@ impl Alist2Strm {
     ///
     /// 执行器保存任务配置和共享的 AList 客户端；真正的扫描和本地文件处理
     /// 发生在 `run` 中。
-    pub fn new(config: Config, client: Arc<Client>) -> Self {
-        Self { config, client }
+    pub fn new(config: Config, client: Arc<Client>, server_url: String) -> Self {
+        Self {
+            config,
+            client,
+            server_url,
+        }
     }
 
     /// 执行一次完整的 Alist2Strm 同步任务。
@@ -123,7 +127,7 @@ impl Alist2Strm {
             http: reqwest::Client::builder()
                 .user_agent(format!("AutoFilm/{}", env!("CARGO_PKG_VERSION")))
                 .build()?,
-            server_url: self.config.alist.base_url.clone(),
+            server_url: self.server_url.clone(),
             base_path: me.base_path,
             download_semaphore: Arc::new(Semaphore::new(self.config.max_downloaders.max(1))),
             download_exts,
@@ -378,7 +382,7 @@ impl Alist2Strm {
         if local_path.extension().and_then(|ext| ext.to_str()) == Some("strm") {
             let existed_before = fs::try_exists(&local_path).await?;
             // 视频文件写入 .strm 内容；伴生文件则直接下载到本地。
-            let Some(content) = self.strm_content(context, &path) else {
+            let Some(content) = self.strm_content(&path) else {
                 RunStats::inc(&context.stats.failed_path_count);
                 warn!(path = %path.full_path, "生成 .strm 的内容为空，跳过");
                 return Ok(());
@@ -422,16 +426,10 @@ impl Alist2Strm {
     /// `AlistURL` 返回 AList `/d` 下载链接并可替换为 `public_url`；
     /// `RawURL` 返回上游原始下载地址；`AlistPath` 返回远端路径本身。
     /// 如果所需信息缺失会返回 `None`，调用方会跳过该文件。
-    fn strm_content(&self, context: &RunContext, path: &AlistPath) -> Option<String> {
+    fn strm_content(&self, path: &AlistPath) -> Option<String> {
         // 三种模式对应 Python 版本：AList 下载链接、后端原始链接、AList 路径。
         match self.config.mode {
-            Mode::AlistURL => {
-                let content = path.download_url();
-                Some(match self.public_url() {
-                    Some(public_url) => content.replacen(&context.server_url, &public_url, 1),
-                    None => content,
-                })
-            }
+            Mode::AlistURL => Some(path.download_url()),
             Mode::RawURL => path.raw_url.clone(),
             Mode::AlistPath => Some(path.full_path.clone()),
         }
@@ -598,19 +596,6 @@ impl Alist2Strm {
         exts
     }
 
-    /// 返回配置中的公共访问地址。
-    ///
-    /// 当配置了 `public_url` 时，`AlistURL` 模式生成的 `.strm` 内容会使用该地址
-    /// 替换内部 AList 地址，从而支持内外网地址分离。
-    fn public_url(&self) -> Option<String> {
-        self.config
-            .alist
-            .public_url
-            .as_ref()
-            .filter(|url| !url.trim().is_empty())
-            .cloned()
-    }
-
     /// 判断是否启用了本地同步清理。
     ///
     /// 只有配置中存在 `sync` 且 `enabled=true` 时，任务结束后才会删除本地过期
@@ -635,21 +620,11 @@ impl Alist2Strm {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::alist2strm::config::AlistConfig;
-
     fn test_config(target_dir: PathBuf) -> Config {
         Config {
             id: "test".to_string(),
             cron: None,
-            alist: AlistConfig {
-                base_url: "http://127.0.0.1:5244".to_string(),
-                public_url: None,
-                username: None,
-                password: None,
-                otp_code: None,
-                token: Some("token".to_string()),
-                wait_time: 0.0,
-            },
+            alist: "test-alist".to_string(),
             source_dir: "/source".to_string(),
             target_dir,
             mode: Mode::AlistURL,
@@ -691,6 +666,7 @@ mod tests {
         let runner = Alist2Strm::new(
             test_config(target_dir.clone()),
             Arc::new(Client::with_token("http://127.0.0.1:5244", "token").unwrap()),
+            "http://127.0.0.1:5244".to_string(),
         );
         let context = Arc::new(test_context());
         let paths = vec![AlistPath {
