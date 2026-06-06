@@ -2,8 +2,6 @@ use chrono_tz::Tz;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use alist::Client;
-
 use crate::alist::build_client;
 use crate::alist2strm::Alist2Strm;
 use crate::config::Config;
@@ -16,12 +14,36 @@ pub async fn create_scheduler(
 ) -> Result<(JobScheduler, usize), JobSchedulerError> {
     let scheduler = JobScheduler::new().await?;
     let mut scheduled_count = 0usize;
-    let mut alist_clients: HashMap<String, Arc<Client>> = HashMap::new();
-    let alist_configs = config
-        .alist
-        .into_iter()
-        .map(|alist| (alist.id.clone(), alist))
-        .collect::<HashMap<_, _>>();
+
+    // key是AList客户端ID，value是(Client, 服务器URL)二元组
+    let mut alist_clients = HashMap::new();
+
+    for alist_config in config.alist {
+        if alist_clients.contains_key(&alist_config.id) {
+            warn!(
+                alist = %alist_config.id,
+                "AList 客户端 ID 重复，已跳过后续重复配置"
+            );
+            continue;
+        }
+
+        let server_url = alist_config
+            .public_url
+            .clone()
+            .unwrap_or_else(|| alist_config.base_url.clone());
+        match build_client(&alist_config) {
+            Ok(client) => {
+                alist_clients.insert(alist_config.id.clone(), (Arc::new(client), server_url));
+            }
+            Err(err) => {
+                error!(
+                    alist = %alist_config.id,
+                    error = %err,
+                    "创建 AList 客户端失败，引用该客户端的任务将被跳过"
+                );
+            }
+        }
+    }
 
     for task in config.alist2strm_tasks {
         let task_id = task.id.clone();
@@ -31,7 +53,7 @@ pub async fn create_scheduler(
         };
 
         info!(task_id = %task_id, cron = %cron, "添加 Alist2Strm 定时任务");
-        let Some(alist_config) = alist_configs.get(&task.alist).cloned() else {
+        let Some((client, server_url)) = alist_clients.get(&task.alist) else {
             error!(
                 task_id = %task_id,
                 alist = %task.alist,
@@ -40,24 +62,7 @@ pub async fn create_scheduler(
             continue;
         };
 
-        let client = match alist_clients.get(&alist_config.id) {
-            Some(client) => client.clone(),
-            None => match build_client(&alist_config) {
-                Ok(client) => {
-                    let client = Arc::new(client);
-                    alist_clients.insert(alist_config.id.clone(), client.clone());
-                    client
-                }
-                Err(err) => {
-                    error!(task_id = %task_id, error = %err, "创建 AList 客户端失败，已跳过任务");
-                    continue;
-                }
-            },
-        };
-        let server_url = alist_config
-            .public_url
-            .unwrap_or_else(|| alist_config.base_url.clone());
-        let runner = Arc::new(Alist2Strm::new(task, client, server_url));
+        let runner = Arc::new(Alist2Strm::new(task, client.clone(), server_url.clone()));
         scheduler
             .add(Job::new_async_tz(cron, tz, move |_uuid, _lock| {
                 let runner = runner.clone();
