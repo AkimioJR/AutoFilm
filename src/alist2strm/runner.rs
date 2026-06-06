@@ -16,7 +16,7 @@ use crate::alist2strm::path::{AlistPath, bdmv_root, is_bdmv_file};
 use crate::alist2strm::protection::ProtectionManager;
 use crate::alist2strm::summary::{RunStats, RunSummary};
 use crate::alist2strm::utils::{
-    build_client, collect_local_files, companion_file_is_stale, remove_empty_parents,
+    collect_local_files, companion_file_is_stale, remove_empty_parents,
 };
 use crate::extensions::{IMAGE_EXTS, NFO_EXTS, SUBTITLE_EXTS, VIDEO_EXTS};
 use tokio::fs;
@@ -26,6 +26,7 @@ use tracing::{debug, info, warn};
 #[derive(Debug, Clone)]
 pub struct Alist2Strm {
     config: Config,
+    client: Arc<Client>,
 }
 
 #[derive(Debug)]
@@ -44,10 +45,10 @@ struct RunContext {
 impl Alist2Strm {
     /// 创建一个 Alist2Strm 任务执行器。
     ///
-    /// 执行器只保存任务配置，不会立即连接 AList 或访问本地文件系统；真正的
-    /// 上下文初始化和扫描处理发生在 `run` 中。
-    pub fn new(config: Config) -> Self {
-        Self { config }
+    /// 执行器保存任务配置和共享的 AList 客户端；真正的扫描和本地文件处理
+    /// 发生在 `run` 中。
+    pub fn new(config: Config, client: Arc<Client>) -> Self {
+        Self { config, client }
     }
 
     /// 执行一次完整的 Alist2Strm 同步任务。
@@ -56,7 +57,7 @@ impl Alist2Strm {
     /// 收集并处理 BDMV 主片、按需清理本地过期文件。单个远端目录或文件失败会
     /// 记录日志并跳过，初始化和本地清理等关键错误仍会返回给调度器。
     pub async fn run(&self) -> Result<RunSummary> {
-        // 每次 run 都重新创建上下文，确保 token、base_path 和配置是当前值。
+        // 每次 run 都重新创建轻量上下文，确保 base_path 和配置派生项是当前值。
         let stats = Arc::new(RunStats::new());
         let context = Arc::new(self.create_context(stats.clone()).await?);
         info!(task_id = %self.config.id, source_dir = %self.config.source_dir, "开始扫描 AList 目录");
@@ -97,10 +98,10 @@ impl Alist2Strm {
 
     /// 创建本次运行共享的上下文。
     ///
-    /// 该函数会构建 AList 客户端、读取当前用户 `base_path`、准备 HTTP 下载
+    /// 该函数会复用 AList 客户端、读取当前用户 `base_path`、准备 HTTP 下载
     /// 客户端、计算需要处理和下载的扩展名集合，并编译同步忽略规则。
     async fn create_context(&self, stats: Arc<RunStats>) -> Result<RunContext> {
-        let client = Arc::new(build_client(&self.config.alist)?);
+        let client = self.client.clone();
         let me = client.me().await?;
         let download_exts = self.download_exts();
         let mut process_exts = VIDEO_EXTS
@@ -687,7 +688,10 @@ mod tests {
         let target_dir = std::env::temp_dir().join(unique);
         fs::write(&target_dir, b"not a directory").await.unwrap();
 
-        let runner = Alist2Strm::new(test_config(target_dir.clone()));
+        let runner = Alist2Strm::new(
+            test_config(target_dir.clone()),
+            Arc::new(Client::with_token("http://127.0.0.1:5244", "token").unwrap()),
+        );
         let context = Arc::new(test_context());
         let paths = vec![AlistPath {
             server_url: "http://127.0.0.1:5244".to_string(),

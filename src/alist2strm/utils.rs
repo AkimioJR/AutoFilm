@@ -14,7 +14,7 @@ use crate::alist2strm::path::AlistPath;
 ///
 /// 优先使用永久 token；未配置 token 时使用用户名、密码和可选 OTP 登录。
 /// 同时会应用请求间隔配置，用于降低对 AList 或上游存储的请求压力。
-pub(super) fn build_client(config: &AlistConfig) -> Result<Client> {
+pub(crate) fn build_client(config: &AlistConfig) -> Result<Client> {
     let request_interval =
         (config.wait_time > 0.0).then(|| Duration::from_secs_f64(config.wait_time));
     if let Some(token) = config
