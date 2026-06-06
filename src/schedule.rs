@@ -6,7 +6,7 @@ use crate::alist::build_client;
 use crate::alist2strm::Alist2Strm;
 use crate::config::Config;
 use tokio_cron_scheduler::{Job, JobScheduler, JobSchedulerError};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 pub async fn create_scheduler(
     config: Config,
@@ -33,11 +33,18 @@ pub async fn create_scheduler(
             .unwrap_or_else(|| alist_config.base_url.clone());
         match build_client(&alist_config) {
             Ok(client) => {
+                debug!(
+                    id = %alist_config.id,
+                    base_url = %alist_config.base_url,
+                    public_url = ?alist_config.public_url,
+                    server_url = %server_url,
+                    "成功创建 AList 客户端",
+                );
                 alist_clients.insert(alist_config.id.clone(), (Arc::new(client), server_url));
             }
             Err(err) => {
                 error!(
-                    alist = %alist_config.id,
+                    id = %alist_config.id,
                     error = %err,
                     "创建 AList 客户端失败，引用该客户端的任务将被跳过"
                 );
@@ -61,6 +68,14 @@ pub async fn create_scheduler(
             );
             continue;
         };
+
+        debug!(
+            task_id = %task_id,
+            alist = %task.alist,
+            source_dir = %task.source_dir,
+            target_dir = %task.target_dir.display(),
+            "成功解析 Alist2Strm 任务配置"
+        );
 
         let runner = Arc::new(Alist2Strm::new(task, client.clone(), server_url.clone()));
         scheduler
