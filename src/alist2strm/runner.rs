@@ -14,7 +14,7 @@ use crate::alist2strm::config::{Config, Mode};
 use crate::alist2strm::errors::{Error, Result};
 use crate::alist2strm::path::{AlistPath, bdmv_root, is_bdmv_file};
 use crate::alist2strm::protection::ProtectionManager;
-use crate::alist2strm::summary::RunStats;
+use crate::alist2strm::summary::{RunStats, RunSummary};
 use crate::alist2strm::utils::{
     build_client, collect_local_files, companion_file_is_stale, normalize_url, remove_empty_parents,
 };
@@ -55,7 +55,7 @@ impl Alist2Strm {
     /// 流程包括创建 AList/HTTP 上下文、扫描远端目录、边扫描边处理普通文件、
     /// 收集并处理 BDMV 主片、按需清理本地过期文件。单个远端目录或文件失败会
     /// 记录日志并跳过，初始化和本地清理等关键错误仍会返回给调度器。
-    pub async fn run(&self) -> Result<()> {
+    pub async fn run(&self) -> Result<RunSummary> {
         // 每次 run 都重新创建上下文，确保 token、base_path 和配置是当前值。
         let stats = Arc::new(RunStats::new());
         let context = Arc::new(self.create_context(stats.clone()).await?);
@@ -92,32 +92,7 @@ impl Alist2Strm {
         }
 
         let summary = stats.summarize(&self.config);
-        info!(
-            task_id = %summary.task_id,
-            source_dir = %summary.source_dir,
-            target_dir = %summary.target_dir.display(),
-            start_time = %summary.start_time.to_rfc3339(),
-            end_time = %summary.end_time.to_rfc3339(),
-            duration_millis = summary.duration_millis,
-            scanned_dir_count = summary.scanned_dir_count,
-            skipped_dir_count = summary.skipped_dir_count,
-            discovered_file_count = summary.discovered_file_count,
-            matched_file_count = summary.matched_file_count,
-            filtered_file_count = summary.filtered_file_count,
-            bdmv_collection_count = summary.bdmv_collection_count,
-            bdmv_selected_count = summary.bdmv_selected_count,
-            strm_created_count = summary.strm_created_count,
-            strm_updated_count = summary.strm_updated_count,
-            strm_skipped_count = summary.strm_skipped_count,
-            attachment_downloaded_count = summary.attachment_downloaded_count,
-            attachment_updated_count = summary.attachment_updated_count,
-            attachment_skipped_count = summary.attachment_skipped_count,
-            local_deleted_count = summary.local_deleted_count,
-            local_delete_ignored_count = summary.local_delete_ignored_count,
-            failed_path_count = summary.failed_path_count,
-            "Alist2Strm 运行总结"
-        );
-        Ok(())
+        Ok(summary)
     }
 
     /// 创建本次运行共享的上下文。

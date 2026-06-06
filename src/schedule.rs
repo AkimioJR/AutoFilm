@@ -28,10 +28,37 @@ pub async fn create_scheduler(
                 let task_id = task_id.clone();
                 Box::pin(async move {
                     info!(task_id = %task_id, "开始执行 Alist2Strm 任务");
-                    if let Err(err) = runner.run().await {
-                        error!(task_id = %task_id, error = %err, "Alist2Strm 任务失败");
-                    } else {
-                        info!(task_id = %task_id, "Alist2Strm 任务完成");
+                    match runner.run().await {
+                        Err(err) => {
+                            error!(task_id = %task_id, error = %err, "Alist2Strm 任务失败");
+                        }
+                        Ok(summary) => {
+                            info!(
+                               task_id = %summary.task_id,
+                               source_dir = %summary.source_dir,
+                               target_dir = %summary.target_dir.display(),
+                               start_time = %&summary.start_time.with_timezone(&tz),
+                               end_time = %&summary.end_time.with_timezone(&tz),
+                               duration_millis = summary.duration_millis,
+                               scanned_dir_count = summary.scanned_dir_count,
+                               skipped_dir_count = summary.skipped_dir_count,
+                               discovered_file_count = summary.discovered_file_count,
+                               matched_file_count = summary.matched_file_count,
+                               filtered_file_count = summary.filtered_file_count,
+                               bdmv_collection_count = summary.bdmv_collection_count,
+                               bdmv_selected_count = summary.bdmv_selected_count,
+                               strm_created_count = summary.strm_created_count,
+                               strm_updated_count = summary.strm_updated_count,
+                               strm_skipped_count = summary.strm_skipped_count,
+                               attachment_downloaded_count = summary.attachment_downloaded_count,
+                               attachment_updated_count = summary.attachment_updated_count,
+                               attachment_skipped_count = summary.attachment_skipped_count,
+                               local_deleted_count = summary.local_deleted_count,
+                               local_delete_ignored_count = summary.local_delete_ignored_count,
+                               failed_path_count = summary.failed_path_count,
+                               "Alist2Strm 任务完成"
+                            );
+                        }
                     }
                 })
             })?)
