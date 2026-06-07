@@ -7,5 +7,5 @@ mod summary;
 mod utils;
 
 pub use config::Config;
-pub(crate) use errors::{Error, Result};
+pub(crate) use errors::Result;
 pub use runner::Alist2Strm;

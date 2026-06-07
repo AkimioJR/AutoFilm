@@ -3,7 +3,7 @@ use std::time::Duration;
 use alist::{Authentication, Client};
 use serde::{Deserialize, Serialize};
 
-use crate::alist2strm::{Error, Result};
+use crate::alist2strm::Result;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct AlistConfig {
@@ -27,8 +27,9 @@ pub struct AlistConfig {
 
 /// 根据配置构建 AList API 客户端。
 ///
-/// 优先使用永久 token；未配置 token 时使用用户名、密码和可选 OTP 登录。
-/// 同时会应用请求间隔配置，用于降低对 AList 或上游存储的请求压力。
+/// 优先使用永久 token；未配置 token 时使用用户名、密码和可选 OTP 登录；
+/// 都未配置时创建无认证客户端。
+/// 同时会应用请求间隔配置，用于降低对 AList 服务器的压力。
 pub(crate) fn build_client(config: &AlistConfig) -> Result<Client> {
     let request_interval =
         (config.wait_time > 0.0).then(|| Duration::from_secs_f64(config.wait_time));
@@ -43,8 +44,8 @@ pub(crate) fn build_client(config: &AlistConfig) -> Result<Client> {
 
     let username = config.username.as_deref().filter(|value| !value.is_empty());
     let password = config.password.as_deref().filter(|value| !value.is_empty());
-    match (username, password) {
-        (Some(username), Some(password)) => Ok(Client::with_authentication(
+    if let (Some(username), Some(password)) = (username, password) {
+        return Ok(Client::with_authentication(
             &config.base_url,
             Authentication::username_password(
                 username.to_string(),
@@ -52,7 +53,8 @@ pub(crate) fn build_client(config: &AlistConfig) -> Result<Client> {
                 config.otp_code.clone(),
             ),
         )?
-        .with_api_request_interval(request_interval)),
-        _ => Err(Error::MissingAuthentication),
+        .with_api_request_interval(request_interval));
     }
+
+    Ok(Client::new(&config.base_url)?.with_api_request_interval(request_interval))
 }

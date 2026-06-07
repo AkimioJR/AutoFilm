@@ -15,8 +15,6 @@ pub enum Error {
     Json(#[from] serde_json::Error),
     #[error("regex error: {0}")]
     Regex(#[from] regex::Error),
-    #[error("missing alist authentication, provide token or username/password")]
-    MissingAuthentication,
     #[error("download failed with status {status}: {url}")]
     DownloadStatus { status: StatusCode, url: String },
 }
