@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use chrono::{DateTime, Utc};
 
@@ -16,7 +16,7 @@ pub struct RunSummary {
     pub target_dir: PathBuf,
     pub start_time: DateTime<Utc>,
     pub end_time: DateTime<Utc>,
-    pub duration_millis: u128,
+    pub duration: Duration,
     pub scanned_dir_count: usize,
     pub skipped_dir_count: usize,
     pub discovered_file_count: usize,
@@ -97,7 +97,7 @@ impl RunStats {
             target_dir: config.target_dir.clone(),
             start_time: self.start_time,
             end_time,
-            duration_millis: self.started_at.elapsed().as_millis(),
+            duration: self.started_at.elapsed(),
             scanned_dir_count: Self::load(&self.scanned_dir_count),
             skipped_dir_count: Self::load(&self.skipped_dir_count),
             discovered_file_count: Self::load(&self.discovered_file_count),
