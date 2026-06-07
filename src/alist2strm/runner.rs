@@ -4,7 +4,7 @@ use std::sync::{Arc, atomic::Ordering};
 
 use alist::Client;
 use alist::models::fs::{FsGetReq, FsListReq};
-use futures_util::future::{BoxFuture, FutureExt};
+use futures_util::future::FutureExt;
 use futures_util::stream::{FuturesUnordered, StreamExt};
 use regex::Regex;
 use reqwest::StatusCode;
@@ -151,7 +151,7 @@ impl Alist2Strm {
         // 使用显式栈递归遍历，避免深层目录导致函数递归过深。
         let mut stack = vec![self.config.source_dir.clone()];
         let max_workers = self.config.max_workers.max(1);
-        let mut pending: FuturesUnordered<BoxFuture<'_, ()>> = FuturesUnordered::new();
+        let mut pending = FuturesUnordered::new();
 
         while let Some(dir_path) = stack.pop() {
             debug!(
@@ -619,6 +619,8 @@ impl Alist2Strm {
 
 #[cfg(test)]
 mod tests {
+    use alist::Authentication::Token;
+
     use super::*;
     fn test_config(target_dir: PathBuf) -> Config {
         Config {
@@ -639,7 +641,11 @@ mod tests {
 
     fn test_context() -> RunContext {
         RunContext {
-            client: Arc::new(Client::with_token("http://127.0.0.1:5244", "token").unwrap()),
+            client: Arc::new(
+                Client::new("http://127.0.0.1:5244")
+                    .unwrap()
+                    .with_authentication(Token("token".to_string())),
+            ),
             http: reqwest::Client::new(),
             server_url: "http://127.0.0.1:5244".to_string(),
             base_path: String::new(),
@@ -665,7 +671,11 @@ mod tests {
 
         let runner = Alist2Strm::new(
             test_config(target_dir.clone()),
-            Arc::new(Client::with_token("http://127.0.0.1:5244", "token").unwrap()),
+            Arc::new(
+                Client::new("http://127.0.0.1:5244")
+                    .unwrap()
+                    .with_authentication(Token("token".to_string())),
+            ),
             "http://127.0.0.1:5244".to_string(),
         );
         let context = Arc::new(test_context());

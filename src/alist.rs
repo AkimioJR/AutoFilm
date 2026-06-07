@@ -9,7 +9,6 @@ use crate::alist2strm::Result;
 pub struct AlistConfig {
     // AList 连接 ID，用于任务配置引用并复用客户端对象。
     pub id: String,
-    // AList 服务地址，允许不写协议；运行时会默认补 https://。
     pub base_url: String,
     #[serde(default)]
     pub public_url: Option<String>,
@@ -34,26 +33,26 @@ pub(crate) fn build_client(config: &AlistConfig) -> Result<Client> {
     let request_interval =
         (config.wait_time > 0.0).then(|| Duration::from_secs_f64(config.wait_time));
 
-    let mut client = Client::new(&config.base_url)?.with_api_request_interval(request_interval);
+    let client = Client::new(&config.base_url)?.with_api_request_interval(request_interval);
 
     if let Some(token) = config
         .token
         .as_deref()
         .filter(|token| !token.trim().is_empty())
     {
-        client.set_authentication(Authentication::Token(token.to_string()));
-        return Ok(client);
+        return Ok(client.with_authentication(Authentication::Token(token.to_string())));
     }
 
     let username = config.username.as_deref().filter(|value| !value.is_empty());
     let password = config.password.as_deref().filter(|value| !value.is_empty());
     if let (Some(username), Some(password)) = (username, password) {
-        client.set_authentication(Authentication::UsernamePassword {
-            username: username.to_string(),
-            password: password.to_string(),
-            otp_code: config.otp_code.clone(),
-        });
-        return Ok(client);
+        return Ok(
+            client.with_authentication(Authentication::UsernamePassword {
+                username: username.to_string(),
+                password: password.to_string(),
+                otp_code: config.otp_code.clone(),
+            }),
+        );
     }
 
     Ok(client)
