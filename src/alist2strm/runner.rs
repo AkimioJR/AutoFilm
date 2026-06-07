@@ -371,7 +371,7 @@ impl Alist2Strm {
         let local_path = self.local_path(&path);
         debug!(
             task_id = %self.config.id,
-            path = %path.full_path,
+            remote_path = %path.full_path,
             local_path = %local_path.display(),
             "已计算本地目标路径"
         );
@@ -389,22 +389,27 @@ impl Alist2Strm {
             };
             debug!(
                 task_id = %self.config.id,
-                path = %path.full_path,
+                remote_path = %path.full_path,
                 local_path = %local_path.display(),
                 "正在写入 strm 文件"
             );
-            fs::write(local_path, content).await?;
+            fs::write(&local_path, content).await?;
             if existed_before {
                 RunStats::inc(&context.stats.strm_updated_count);
             } else {
                 RunStats::inc(&context.stats.strm_created_count);
             }
-            info!(path = %path.full_path, "strm 文件创建成功");
+            info!(
+                task_id = %self.config.id,
+                remote_path = %path.full_path,
+                local_path = %local_path.display(),
+                "strm 文件创建成功"
+            );
         } else {
             let existed_before = fs::try_exists(&local_path).await?;
             debug!(
                 task_id = %self.config.id,
-                path = %path.full_path,
+                remote_path = %path.full_path,
                 local_path = %local_path.display(),
                 "正在下载 AList 伴生文件"
             );
@@ -415,7 +420,12 @@ impl Alist2Strm {
             } else {
                 RunStats::inc(&context.stats.attachment_downloaded_count);
             }
-            info!(path = %path.full_path, local_path = %local_path.display(), "伴生文件下载成功");
+            info!(
+                task_id = %self.config.id,
+                remote_path = %path.full_path,
+                local_path = %local_path.display(),
+                "伴生文件下载成功"
+            );
         }
 
         Ok(())
