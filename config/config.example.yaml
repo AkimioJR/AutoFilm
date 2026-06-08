@@ -31,10 +31,12 @@ alist2strm_tasks:
     overwrite: false                        # 覆盖模式；本地已存在同名文件时是否重新生成/下载
     concurrency: 50                         # 执行任务的最大并发处理数，可以减轻运行设备与 AList 服务器负载
     download:                               # 下载相关配置
+      enable: false                         # 是否下载字幕、图片、NFO 和自定义后缀等伴生文件
       subtitle: false                       # 是否下载字幕文件：.ass、.srt、.ssa、.sub
       image: false                          # 是否下载图片文件：.png、.jpg
       nfo: false                            # 是否下载 .nfo 文件
       other_ext: []                         # 自定义下载后缀列表，例如 [".zip", ".md"]
+      concurrency: 5                        # 最大同时下载伴生文件数量
     sync:                                   # 同步远程相关配置
       enabled: true                         # 是否同步服务器删除；开启后远端不存在的本地文件会被删除
       ignore: "\\.(nfo|jpg)$"               # 同步删除时忽略的文件名正则；仅匹配文件名，不匹配完整路径
@@ -42,7 +44,6 @@ alist2strm_tasks:
         enabled: true                       # 是否启用保护（默认 false）
         threshold: 100                      # 触发保护的待删除 .strm 数量阈值
         grace_scans: 3                      # 达到阈值后，连续确认多少次才真正删除
-    max_downloaders: 5                      # 最大同时下载伴生文件数量
 
   - id: 电影
     cron: 0 0 20 * * *
@@ -54,15 +55,16 @@ alist2strm_tasks:
     overwrite: false
     concurrency: 20
     download:
+      enable: true
       subtitle: true
       image: true
       nfo: true
       other_ext:
         - .zip
         - .md
+      concurrency: 5
     sync:
       enabled: true
       ignore:
       smart_protection:
         enabled: false
-    max_downloaders: 5

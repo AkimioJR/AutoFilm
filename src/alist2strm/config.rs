@@ -4,6 +4,8 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct DownloadOption {
     #[serde(default)]
+    pub enable: bool,
+    #[serde(default)]
     pub subtitle: bool,
     #[serde(default)]
     pub image: bool,
@@ -11,6 +13,8 @@ pub struct DownloadOption {
     pub nfo: bool,
     #[serde(default, deserialize_with = "deserialize_exts")]
     pub other_ext: Vec<String>,
+    #[serde(default = "default_download_concurrency")]
+    pub concurrency: usize,
 }
 
 #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Serialize)]
@@ -91,8 +95,6 @@ pub struct Config {
     pub sync: Option<SyncConfig>,
     #[serde(default = "default_concurrency")]
     pub concurrency: usize,
-    #[serde(default = "default_max_downloaders")]
-    pub max_downloaders: usize,
 }
 
 /// 返回默认的普通文件处理并发数。
@@ -107,7 +109,7 @@ fn default_concurrency() -> usize {
 ///
 /// 下载字幕、图片、nfo 等伴生文件时会使用独立限流，避免下载连接占满
 /// AList 或上游存储资源。
-fn default_max_downloaders() -> usize {
+fn default_download_concurrency() -> usize {
     5
 }
 
@@ -133,10 +135,12 @@ impl Default for DownloadOption {
     /// 扩展名文件。
     fn default() -> Self {
         Self {
+            enable: false,
             subtitle: false,
             image: false,
             nfo: false,
             other_ext: Vec::new(),
+            concurrency: default_download_concurrency(),
         }
     }
 }

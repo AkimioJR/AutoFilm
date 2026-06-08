@@ -129,7 +129,7 @@ impl Alist2Strm {
                 .build()?,
             server_url: self.server_url.clone(),
             base_path: me.base_path,
-            download_semaphore: Arc::new(Semaphore::new(self.config.max_downloaders.max(1))),
+            download_semaphore: Arc::new(Semaphore::new(self.config.download.concurrency.max(1))),
             download_exts,
             process_exts,
             sync_ignore_pattern,
@@ -578,11 +578,10 @@ impl Alist2Strm {
 
     /// 根据下载配置计算需要作为伴生文件保存的扩展名集合。
     ///
-    /// 平铺模式下不会下载伴生文件；非平铺模式会根据 subtitle/image/nfo 开关和
-    /// `other_ext` 合并出需要额外下载的扩展名。
+    /// 未启用下载或平铺模式下不会下载伴生文件；否则会根据 subtitle/image/nfo
+    /// 开关和 `other_ext` 合并出需要额外下载的扩展名。
     fn download_exts(&self) -> HashSet<String> {
-        // 平铺模式下不下载伴生文件，与 Python 行为保持一致。
-        if self.config.flatten_mode {
+        if !self.config.download.enable || self.config.flatten_mode {
             return HashSet::new();
         }
 
@@ -645,7 +644,6 @@ mod tests {
             download: Default::default(),
             sync: None,
             concurrency: 1,
-            max_downloaders: 1,
         }
     }
 

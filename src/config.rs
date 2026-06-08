@@ -34,6 +34,9 @@ mod tests {
         assert_eq!(config.alist[0].base_url, "http://alist:5244");
         assert_eq!(config.alist[0].wait_time, 0.0);
         assert_eq!(config.alist2strm_tasks[0].alist, "我的Alist");
+        assert!(!config.alist2strm_tasks[0].download.enable);
+        assert_eq!(config.alist2strm_tasks[0].download.concurrency, 5);
+        assert!(config.alist2strm_tasks[1].download.enable);
         assert!(config.alist2strm_tasks[1].download.subtitle);
         assert!(
             config.alist2strm_tasks[0]
