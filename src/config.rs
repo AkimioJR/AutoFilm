@@ -32,7 +32,7 @@ mod tests {
 
         assert_eq!(config.alist2strm_tasks.len(), 2);
         assert_eq!(config.ani2alist_tasks.len(), 3);
-        assert_eq!(config.alist.len(), 2);
+        assert_eq!(config.alist.len(), 3);
         assert_eq!(config.alist[0].id, "我的Alist");
         assert_eq!(config.alist[0].base_url, "http://alist:5244");
         assert_eq!(config.alist[0].wait_time, 0.0);
@@ -56,7 +56,7 @@ mod tests {
                 .expect("sync smart protection should exist")
                 .enabled
         );
-        assert_eq!(config.ani2alist_tasks[0].alist, "我的Alist");
+        assert_eq!(config.ani2alist_tasks[0].alist, "OpenList");
         assert_eq!(
             config.ani2alist_tasks[0].source.rss_url,
             "https://api.ani.rip/ani-download.xml"
