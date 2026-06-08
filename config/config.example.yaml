@@ -86,8 +86,8 @@ ani2alist_tasks:
     source:                                          # 数据源配置
       source_url: https://aniopen.an-i.workers.dev   # ANI Open 目录数据源完整 URL
       rss_url: https://api.ani.rip/ani-download.xml  # ANI RSS 完整 URL
-    update:
-      mode: rss                             # RSS 追更模式，读取 rss_url 中的最新条目
+    update:                                          # 更新模式（有rss、season、keyword三种模式）
+      mode: rss                                      # RSS 追更模式，读取 rss_url 中的最新条目
 
   - id: 指定季度
     cron: 0 0 7 * * *
@@ -97,7 +97,7 @@ ani2alist_tasks:
       source_url: https://aniopen.an-i.workers.dev
       rss_url: https://api.ani.rip/ani-download.xml
     update:
-      mode: season                          # 季度模式，递归解析 source_url/{year}-{month}/
+      mode: season                                   # 指定季度
       year: 2026
       month: 4
 
@@ -109,5 +109,5 @@ ani2alist_tasks:
       source_url: https://aniopen.an-i.workers.dev
       rss_url: https://api.ani.rip/ani-download.xml
     update:
-      mode: keyword                         # 关键字模式，递归解析 source_url/{keyword}/
+      mode: keyword                                 # 关键字模式，递归解析 source_url/{keyword}/
       keyword: "2026-4"
