@@ -53,6 +53,7 @@ pub async fn create_scheduler(
         }
     }
 
+    let mut alist2strm_scheduled_count = 0usize;
     for task in config.alist2strm_tasks {
         let task_id = task.id.clone();
         let Some(cron) = task.cron.clone() else {
@@ -120,9 +121,17 @@ pub async fn create_scheduler(
                 })
             })?)
             .await?;
+        alist2strm_scheduled_count += 1;
         scheduled_count += 1;
     }
 
+    info!(
+        module = "Alist2Strm",
+        scheduled_count = alist2strm_scheduled_count,
+        "子任务调度完成"
+    );
+
+    let mut ani2alist_scheduled_count = 0usize;
     for task in config.ani2alist_tasks {
         let task_id = task.id.clone();
         let Some(cron) = task.cron.clone() else {
@@ -165,8 +174,16 @@ pub async fn create_scheduler(
                 })
             })?)
             .await?;
+        ani2alist_scheduled_count += 1;
         scheduled_count += 1;
     }
+
+    info!(
+        module = "Ani2Alist",
+        scheduled_count = ani2alist_scheduled_count,
+        "子任务调度完成"
+    );
+    info!(scheduled_count, "全部子任务调度完成");
 
     Ok((scheduler, scheduled_count))
 }
