@@ -150,7 +150,7 @@ impl Alist2Strm {
     ) -> Result<()> {
         // 使用显式栈递归遍历，避免深层目录导致函数递归过深。
         let mut stack = vec![self.config.source_dir.clone()];
-        let max_workers = self.config.max_workers.max(1);
+        let concurrency = self.config.concurrency.max(1);
         let mut pending = FuturesUnordered::new();
 
         while let Some(dir_path) = stack.pop() {
@@ -212,7 +212,7 @@ impl Alist2Strm {
                             "AList 路径加入处理队列"
                         );
                         pending.push(self.process_path_logged(context.clone(), path).boxed());
-                        while pending.len() >= max_workers {
+                        while pending.len() >= concurrency {
                             pending.next().await;
                         }
                     }
@@ -309,7 +309,7 @@ impl Alist2Strm {
     async fn process_paths(&self, context: Arc<RunContext>, paths: Vec<AlistPath>) -> Result<()> {
         // 用 bounded concurrency 限制并发处理数量，避免压垮 AList 或本地 IO。
         futures_util::stream::iter(paths)
-            .for_each_concurrent(self.config.max_workers.max(1), |path| {
+            .for_each_concurrent(self.config.concurrency.max(1), |path| {
                 let context = context.clone();
                 self.process_path_logged(context, path)
             })
@@ -644,7 +644,7 @@ mod tests {
             overwrite: true,
             download: Default::default(),
             sync: None,
-            max_workers: 1,
+            concurrency: 1,
             max_downloaders: 1,
         }
     }

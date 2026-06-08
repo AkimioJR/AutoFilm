@@ -29,6 +29,7 @@ alist2strm_tasks:
     mode: AlistURL                          # .strm 内容模式：AlistURL、RawURL、AlistPath
     flatten_mode: false                     # 平铺模式；开启后所有 .strm 输出到同一级目录，且不会下载伴生文件
     overwrite: false                        # 覆盖模式；本地已存在同名文件时是否重新生成/下载
+    concurrency: 50                         # 执行任务的最大并发处理数，可以减轻运行设备与 AList 服务器负载
     download:                               # 下载相关配置
       subtitle: false                       # 是否下载字幕文件：.ass、.srt、.ssa、.sub
       image: false                          # 是否下载图片文件：.png、.jpg
@@ -41,7 +42,6 @@ alist2strm_tasks:
         enabled: true                       # 是否启用保护（默认 false）
         threshold: 100                      # 触发保护的待删除 .strm 数量阈值
         grace_scans: 3                      # 达到阈值后，连续确认多少次才真正删除
-    max_workers: 50                         # 最大并发处理数，减轻 AList 服务器负载
     max_downloaders: 5                      # 最大同时下载伴生文件数量
 
   - id: 电影
@@ -52,6 +52,7 @@ alist2strm_tasks:
     mode: RawURL
     flatten_mode: false
     overwrite: false
+    concurrency: 20
     download:
       subtitle: true
       image: true
@@ -64,5 +65,4 @@ alist2strm_tasks:
       ignore:
       smart_protection:
         enabled: false
-    max_workers: 20
     max_downloaders: 5

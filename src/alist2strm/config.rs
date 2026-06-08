@@ -89,8 +89,8 @@ pub struct Config {
     pub download: DownloadOption,
     #[serde(default)]
     pub sync: Option<SyncConfig>,
-    #[serde(default = "default_max_workers")]
-    pub max_workers: usize,
+    #[serde(default = "default_concurrency")]
+    pub concurrency: usize,
     #[serde(default = "default_max_downloaders")]
     pub max_downloaders: usize,
 }
@@ -99,7 +99,7 @@ pub struct Config {
 ///
 /// 该值限制同时生成 `.strm`、获取 RawURL 和处理本地文件的任务数量，
 /// 防止一次扫描中创建过多并发操作。
-fn default_max_workers() -> usize {
+fn default_concurrency() -> usize {
     50
 }
 
