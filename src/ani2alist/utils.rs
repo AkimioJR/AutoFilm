@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, Local, NaiveDateTime};
+use chrono::{DateTime, Datelike, NaiveDateTime, TimeZone};
 use regex::Regex;
 use serde::Deserialize;
 
@@ -31,7 +31,7 @@ pub struct AniObject {
     pub created_time: Option<String>,
 }
 
-pub fn current_season(now: DateTime<Local>) -> (i32, u32) {
+pub fn current_season<Tz: TimeZone>(now: DateTime<Tz>) -> (i32, u32) {
     let month = ANI_SEASON_MONTHS
         .iter()
         .rev()
@@ -41,12 +41,16 @@ pub fn current_season(now: DateTime<Local>) -> (i32, u32) {
     (now.year(), month)
 }
 
-pub fn default_season_key(now: DateTime<Local>) -> String {
+pub fn default_season_key<Tz: TimeZone>(now: DateTime<Tz>) -> String {
     let (year, month) = current_season(now);
     format!("{year}-{month}")
 }
 
-pub fn season_key(year: Option<i32>, month: Option<u32>, now: DateTime<Local>) -> String {
+pub fn season_key<Tz: TimeZone>(
+    year: Option<i32>,
+    month: Option<u32>,
+    now: DateTime<Tz>,
+) -> String {
     match (year, month) {
         (Some(year), Some(month)) => format!("{year}-{month}"),
         _ => default_season_key(now),
@@ -204,11 +208,16 @@ mod tests {
 
     #[test]
     fn builds_season_keys() {
-        let now = Local.with_ymd_and_hms(2026, 6, 8, 0, 0, 0).unwrap();
+        let now = chrono_tz::Asia::Shanghai
+            .with_ymd_and_hms(2026, 6, 8, 0, 0, 0)
+            .unwrap();
         assert_eq!(current_season(now), (2026, 4));
         assert_eq!(default_season_key(now), "2026-4");
         assert_eq!(season_key(Some(2025), Some(10), now), "2025-10");
         assert_eq!(season_key_from_parts(2026, 4), "2026-4");
+
+        let utc_now = chrono::Utc.with_ymd_and_hms(2026, 12, 1, 0, 0, 0).unwrap();
+        assert_eq!(current_season(utc_now), (2026, 10));
     }
 
     #[test]

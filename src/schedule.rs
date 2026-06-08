@@ -156,7 +156,7 @@ pub async fn create_scheduler(
             "成功解析 Ani2Alist 任务配置"
         );
 
-        let runner = Arc::new(Ani2Alist::new(task, client.clone()));
+        let runner = Arc::new(Ani2Alist::new(task, client.clone(), tz));
         scheduler
             .add(Job::new_async_tz(cron, tz, move |_uuid, _lock| {
                 let runner = runner.clone();

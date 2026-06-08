@@ -4,7 +4,7 @@ use std::time::Duration;
 use alist::Client;
 use alist::models::admin::AdminPageQuery;
 use alist::models::admin::storage::{Storage, StorageReq};
-use chrono::Local;
+use chrono::{DateTime, TimeZone, Utc};
 use reqwest::StatusCode;
 use serde_json::{Value, json};
 use thiserror::Error;
@@ -33,23 +33,29 @@ pub enum Error {
 }
 
 #[derive(Debug)]
-pub struct Ani2Alist {
+pub struct Ani2Alist<T: TimeZone> {
     config: Config,
     client: Arc<Client>,
     http: reqwest::Client,
+    timezone: T,
 }
 
-impl Ani2Alist {
-    pub fn new(config: Config, client: Arc<Client>) -> Self {
+impl<T: TimeZone> Ani2Alist<T> {
+    pub fn new(config: Config, client: Arc<Client>, timezone: T) -> Self {
         Self {
             config,
             client,
+            timezone,
             http: reqwest::Client::builder()
                 .user_agent(format!("AutoFilm/{}", env!("CARGO_PKG_VERSION")))
                 .timeout(Duration::from_secs(10))
                 .build()
                 .expect("reqwest client should build"),
         }
+    }
+
+    fn now(&self) -> DateTime<T> {
+        Utc::now().with_timezone(&self.timezone)
     }
 
     pub async fn run(&self) -> Result<()> {
@@ -62,7 +68,7 @@ impl Ani2Alist {
                 self.update_from_rss(&mut tree).await?;
             }
             UpdateConfig::Latest { template } => {
-                let (year, month) = current_season(Local::now());
+                let (year, month) = current_season(self.now());
                 let key = season_key_from_parts(year, month);
                 let path_prefix = latest_path_prefix(template.as_deref(), year, month);
                 info!(
@@ -75,7 +81,7 @@ impl Ani2Alist {
                     .await?;
             }
             UpdateConfig::Season { year, month } => {
-                let key = season_key(*year, *month, Local::now());
+                let key = season_key(*year, *month, self.now());
                 info!(task_id = %self.config.id, key = %key, "开始解析 ANI 季度目录");
                 self.update_from_directory_key(&mut tree, &key, vec![key.clone()])
                     .await?;
@@ -196,7 +202,7 @@ impl Ani2Alist {
         Ok(response.text().await?)
     }
 
-    async fn get_json<T: serde::de::DeserializeOwned>(&self, url: &str) -> Result<T> {
+    async fn get_json<R: serde::de::DeserializeOwned>(&self, url: &str) -> Result<R> {
         let response = self.http.post(url).send().await?;
         let status = response.status();
         if !status.is_success() {
