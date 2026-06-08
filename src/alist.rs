@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use alist::{Authentication, Client};
 use serde::{Deserialize, Serialize};
+use tracing::{debug, warn};
 
 use crate::alist2strm::Result;
 
@@ -29,7 +30,7 @@ pub struct AlistConfig {
 /// 优先使用永久 token；未配置 token 时使用用户名、密码和可选 OTP 登录；
 /// 都未配置时创建无认证客户端。
 /// 同时会应用请求间隔配置，用于降低对 AList 服务器的压力。
-pub(crate) fn build_client(config: &AlistConfig) -> Result<Client> {
+pub(crate) async fn build_client(config: &AlistConfig) -> Result<Client> {
     let request_interval =
         (config.wait_time > 0.0).then(|| Duration::from_secs_f64(config.wait_time));
 
@@ -53,6 +54,18 @@ pub(crate) fn build_client(config: &AlistConfig) -> Result<Client> {
                 otp_code: config.otp_code.clone(),
             }),
         );
+    }
+
+    match client.ping().await {
+        Ok(true) => {
+            debug!(id = %config.id, url = %config.base_url, "AList 服务器连通性检查成功");
+        }
+        Ok(false) => {
+            warn!(id = %config.id, url = %config.base_url, "AList 服务器连通性检查未通过，返回了非预期响应");
+        }
+        Err(err) => {
+            warn!(id = %config.id, url = %config.base_url, error = %err, "AList 服务器连通性检查失败");
+        }
     }
 
     Ok(client)

@@ -31,7 +31,7 @@ pub async fn create_scheduler(
             .public_url
             .clone()
             .unwrap_or_else(|| alist_config.base_url.clone());
-        match build_client(&alist_config) {
+        match build_client(&alist_config).await {
             Ok(client) => {
                 debug!(
                     id = %alist_config.id,
