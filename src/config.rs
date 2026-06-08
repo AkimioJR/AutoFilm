@@ -31,7 +31,7 @@ mod tests {
             .expect("example config should parse");
 
         assert_eq!(config.alist2strm_tasks.len(), 2);
-        assert_eq!(config.ani2alist_tasks.len(), 3);
+        assert_eq!(config.ani2alist_tasks.len(), 4);
         assert_eq!(config.alist.len(), 3);
         assert_eq!(config.alist[0].id, "我的Alist");
         assert_eq!(config.alist[0].base_url, "http://alist:5244");

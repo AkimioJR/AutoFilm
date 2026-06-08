@@ -13,8 +13,9 @@ use tracing::{debug, info, warn};
 use super::config::{Config, UpdateConfig};
 use super::url_tree::{FileEntry, Tree};
 use super::utils::{
-    AniDirectoryResp, file_url, is_directory_mime, is_supported_file_mime, join_url,
-    parse_ani_timestamp, rss_items, season_key,
+    AniDirectoryResp, current_season, file_url, is_directory_mime, is_supported_file_mime,
+    join_url, parse_ani_timestamp, rss_items, season_key, season_key_from_parts,
+    template_path_segments,
 };
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -60,14 +61,29 @@ impl Ani2Alist {
                 info!(task_id = %self.config.id, rss_url = %self.config.source.rss_url, "开始解析 ANI RSS");
                 self.update_from_rss(&mut tree).await?;
             }
+            UpdateConfig::Latest { template } => {
+                let (year, month) = current_season(Local::now());
+                let key = season_key_from_parts(year, month);
+                let path_prefix = latest_path_prefix(template.as_deref(), year, month);
+                info!(
+                    task_id = %self.config.id,
+                    key = %key,
+                    path_prefix = ?path_prefix,
+                    "开始解析 ANI 当前季度目录"
+                );
+                self.update_from_directory_key(&mut tree, &key, path_prefix)
+                    .await?;
+            }
             UpdateConfig::Season { year, month } => {
                 let key = season_key(*year, *month, Local::now());
                 info!(task_id = %self.config.id, key = %key, "开始解析 ANI 季度目录");
-                self.update_from_directory_key(&mut tree, &key).await?;
+                self.update_from_directory_key(&mut tree, &key, vec![key.clone()])
+                    .await?;
             }
             UpdateConfig::Keyword { keyword } => {
                 info!(task_id = %self.config.id, keyword = %keyword, "开始解析 ANI 关键字目录");
-                self.update_from_directory_key(&mut tree, keyword).await?;
+                self.update_from_directory_key(&mut tree, keyword, vec![keyword.clone()])
+                    .await?;
             }
         }
 
@@ -91,9 +107,14 @@ impl Ani2Alist {
         Ok(())
     }
 
-    async fn update_from_directory_key(&self, tree: &mut Tree, key: &str) -> Result<()> {
+    async fn update_from_directory_key(
+        &self,
+        tree: &mut Tree,
+        key: &str,
+        path_prefix: Vec<String>,
+    ) -> Result<()> {
         let root_url = join_url(&self.config.source.source_url, &[key]);
-        let mut stack = vec![(root_url, vec![key.to_string()])];
+        let mut stack = vec![(root_url, path_prefix)];
 
         while let Some((url, path)) = stack.pop() {
             debug!(url = %url, "请求 ANI 目录数据");
@@ -191,6 +212,13 @@ impl Ani2Alist {
 
 fn normalize_mount_path(path: &str) -> String {
     format!("/{}", path.trim_matches('/'))
+}
+
+fn latest_path_prefix(template: Option<&str>, year: i32, month: u32) -> Vec<String> {
+    template
+        .filter(|template| !template.trim().is_empty())
+        .map(|template| template_path_segments(template, year, month))
+        .unwrap_or_default()
 }
 
 fn url_structure_from_addition(addition: &str) -> String {
@@ -313,5 +341,15 @@ mod tests {
         assert_eq!(req.driver, "UrlTree");
         assert_eq!(req.order_by, "name");
         assert!(!req.web_proxy);
+    }
+
+    #[test]
+    fn builds_latest_path_prefix_from_template() {
+        assert!(latest_path_prefix(None, 2026, 4).is_empty());
+        assert!(latest_path_prefix(Some("   "), 2026, 4).is_empty());
+        assert_eq!(
+            latest_path_prefix(Some("{{ year }}年/{{ month }}月"), 2026, 4),
+            ["2026年", "4月"]
+        );
     }
 }

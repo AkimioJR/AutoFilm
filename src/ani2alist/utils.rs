@@ -31,14 +31,19 @@ pub struct AniObject {
     pub created_time: Option<String>,
 }
 
-pub fn default_season_key(now: DateTime<Local>) -> String {
+pub fn current_season(now: DateTime<Local>) -> (i32, u32) {
     let month = ANI_SEASON_MONTHS
         .iter()
         .rev()
         .find(|month| **month <= now.month())
         .copied()
         .unwrap_or(1);
-    format!("{}-{month}", now.year())
+    (now.year(), month)
+}
+
+pub fn default_season_key(now: DateTime<Local>) -> String {
+    let (year, month) = current_season(now);
+    format!("{year}-{month}")
 }
 
 pub fn season_key(year: Option<i32>, month: Option<u32>, now: DateTime<Local>) -> String {
@@ -46,6 +51,26 @@ pub fn season_key(year: Option<i32>, month: Option<u32>, now: DateTime<Local>) -
         (Some(year), Some(month)) => format!("{year}-{month}"),
         _ => default_season_key(now),
     }
+}
+
+pub fn season_key_from_parts(year: i32, month: u32) -> String {
+    format!("{year}-{month}")
+}
+
+pub fn render_template(template: &str, year: i32, month: u32) -> String {
+    template
+        .replace("{{ year }}", &year.to_string())
+        .replace("{{ month }}", &month.to_string())
+}
+
+pub fn template_path_segments(template: &str, year: i32, month: u32) -> Vec<String> {
+    render_template(template, year, month)
+        .split('/')
+        .filter_map(|segment| {
+            let segment = segment.trim();
+            (!segment.is_empty()).then(|| segment.to_string())
+        })
+        .collect()
 }
 
 pub fn join_url(base_url: &str, segments: &[&str]) -> String {
@@ -180,8 +205,24 @@ mod tests {
     #[test]
     fn builds_season_keys() {
         let now = Local.with_ymd_and_hms(2026, 6, 8, 0, 0, 0).unwrap();
+        assert_eq!(current_season(now), (2026, 4));
         assert_eq!(default_season_key(now), "2026-4");
         assert_eq!(season_key(Some(2025), Some(10), now), "2025-10");
+        assert_eq!(season_key_from_parts(2026, 4), "2026-4");
+    }
+
+    #[test]
+    fn renders_latest_templates() {
+        assert_eq!(render_template("{{ year }}-{{ month }}", 2026, 4), "2026-4");
+        assert_eq!(
+            template_path_segments("{{ year }}年/{{ month }}月", 2026, 4),
+            ["2026年", "4月"]
+        );
+        assert_eq!(
+            template_path_segments(" / {{ year }}年 // {{ month }}月 / ", 2026, 4),
+            ["2026年", "4月"]
+        );
+        assert!(template_path_segments("   ", 2026, 4).is_empty());
     }
 
     #[test]

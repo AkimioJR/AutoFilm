@@ -26,6 +26,10 @@ pub struct SourceConfig {
 #[serde(tag = "mode", rename_all = "snake_case")]
 pub enum UpdateConfig {
     Rss,
+    Latest {
+        #[serde(default)]
+        template: Option<String>,
+    },
     Season {
         year: Option<i32>,
         month: Option<u32>,
@@ -80,6 +84,38 @@ update:
 
     #[test]
     fn parses_season_and_keyword_update_configs() {
+        let latest: Config = serde_yaml::from_str(
+            r#"
+id: 当前季度
+alist: 我的Alist
+target_dir: /Anime
+update:
+  mode: latest
+  template: "{{ year }}年/{{ month }}月"
+"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            latest.update,
+            UpdateConfig::Latest { ref template }
+                if template.as_deref() == Some("{{ year }}年/{{ month }}月")
+        ));
+
+        let latest_without_template: Config = serde_yaml::from_str(
+            r#"
+id: 当前季度直写
+alist: 我的Alist
+target_dir: /Anime
+update:
+  mode: latest
+"#,
+        )
+        .unwrap();
+        assert!(matches!(
+            latest_without_template.update,
+            UpdateConfig::Latest { template: None }
+        ));
+
         let season: Config = serde_yaml::from_str(
             r#"
 id: 指定季度

@@ -86,8 +86,19 @@ ani2alist_tasks:
     source:                                          # 数据源配置
       source_url: https://aniopen.an-i.workers.dev   # ANI Open 目录数据源完整 URL
       rss_url: https://api.ani.rip/ani-download.xml  # ANI RSS 完整 URL
-    update:                                          # 更新模式（有rss、season、keyword三种模式）
+    update:                                          # 更新模式（有 rss、latest、season、keyword 四种模式）
       mode: rss                                      # RSS 追更模式，读取 rss_url 中的最新条目
+
+  - id: 最新季度
+    cron: 0 10 7 * * *
+    alist: OpenList
+    target_dir: /Anime
+    source:
+      source_url: https://aniopen.an-i.workers.dev
+      rss_url: https://api.ani.rip/ani-download.xml
+    update:
+      mode: latest                                   # 当前季度模式，运行时自动计算 source_url/{year}-{month}/
+      template: "{{ year }}年/{{ month }}月"          # 写入 UrlTree 的子目录模板；留空则直接写入 target_dir
 
   - id: 指定季度
     cron: 0 0 7 * * *
