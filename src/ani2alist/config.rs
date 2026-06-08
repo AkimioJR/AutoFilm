@@ -26,8 +26,13 @@ pub struct SourceConfig {
 #[serde(tag = "mode", rename_all = "snake_case")]
 pub enum UpdateConfig {
     Rss,
-    Season { year: Option<i32>, month: Option<u32> },
-    Keyword { keyword: String },
+    Season {
+        year: Option<i32>,
+        month: Option<u32>,
+    },
+    Keyword {
+        keyword: String,
+    },
 }
 
 impl Default for SourceConfig {
@@ -112,4 +117,3 @@ update:
         ));
     }
 }
-

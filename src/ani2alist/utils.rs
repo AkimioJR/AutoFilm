@@ -198,7 +198,10 @@ mod tests {
 
     #[test]
     fn parses_dates_and_sizes() {
-        assert_eq!(parse_ani_timestamp("2024-11-10T09:01:47.000Z"), Some(1731229307));
+        assert_eq!(
+            parse_ani_timestamp("2024-11-10T09:01:47.000Z"),
+            Some(1731229307)
+        );
         assert_eq!(
             parse_rss_timestamp("Sun, 10 Nov 2024 09:01:47 GMT"),
             Some(1731229307)

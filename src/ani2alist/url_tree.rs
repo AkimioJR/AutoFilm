@@ -122,10 +122,9 @@ fn upsert_path_in_nodes(nodes: &mut Vec<Node>, path: &[String], file: FileEntry)
 }
 
 fn directory_children<'a>(nodes: &'a mut Vec<Node>, name: &str) -> &'a mut Vec<Node> {
-    if let Some(index) = nodes
-        .iter()
-        .position(|node| matches!(node, Node::Directory { name: node_name, .. } if node_name == name))
-    {
+    if let Some(index) = nodes.iter().position(
+        |node| matches!(node, Node::Directory { name: node_name, .. } if node_name == name),
+    ) {
         match &mut nodes[index] {
             Node::Directory { children, .. } => children,
             Node::File(_) => unreachable!(),
@@ -227,4 +226,3 @@ mod tests {
         );
     }
 }
-

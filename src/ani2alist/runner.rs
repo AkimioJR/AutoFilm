@@ -100,7 +100,11 @@ impl Ani2Alist {
             let directory = self.get_json::<AniDirectoryResp>(&url).await?;
             for item in directory.files {
                 if is_supported_file_mime(&item.mime_type) {
-                    let Some(size) = item.size.as_deref().and_then(|value| value.parse::<u64>().ok()) else {
+                    let Some(size) = item
+                        .size
+                        .as_deref()
+                        .and_then(|value| value.parse::<u64>().ok())
+                    else {
                         warn!(name = %item.name, "ANI 文件缺少有效大小，已跳过");
                         continue;
                     };
