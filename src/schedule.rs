@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crate::alist::build_client;
 use crate::alist2strm::Alist2Strm;
+use crate::ani2alist::Ani2Alist;
 use crate::config::Config;
 use tokio_cron_scheduler::{Job, JobScheduler, JobSchedulerError};
 use tracing::{debug, error, info, warn};
@@ -114,6 +115,51 @@ pub async fn create_scheduler(
                                failed_path_count = summary.failed_path_count,
                                "Alist2Strm 任务完成"
                             );
+                        }
+                    }
+                })
+            })?)
+            .await?;
+        scheduled_count += 1;
+    }
+
+    for task in config.ani2alist_tasks {
+        let task_id = task.id.clone();
+        let Some(cron) = task.cron.clone() else {
+            warn!(task_id = %task_id, "Ani2Alist 任务缺少 cron，已跳过");
+            continue;
+        };
+
+        info!(task_id = %task_id, cron = %cron, "添加 Ani2Alist 定时任务");
+        let Some((client, _server_url)) = alist_clients.get(&task.alist) else {
+            error!(
+                task_id = %task_id,
+                alist = %task.alist,
+                "Ani2Alist 任务引用的 AList 客户端不存在，已跳过任务"
+            );
+            continue;
+        };
+
+        debug!(
+            task_id = %task_id,
+            alist = %task.alist,
+            target_dir = %task.target_dir,
+            "成功解析 Ani2Alist 任务配置"
+        );
+
+        let runner = Arc::new(Ani2Alist::new(task, client.clone()));
+        scheduler
+            .add(Job::new_async_tz(cron, tz, move |_uuid, _lock| {
+                let runner = runner.clone();
+                let task_id = task_id.clone();
+                Box::pin(async move {
+                    info!(task_id = %task_id, "开始执行 Ani2Alist 任务");
+                    match runner.run().await {
+                        Err(err) => {
+                            error!(task_id = %task_id, error = %err, "Ani2Alist 任务失败");
+                        }
+                        Ok(()) => {
+                            info!(task_id = %task_id, "Ani2Alist 任务完成");
                         }
                     }
                 })
