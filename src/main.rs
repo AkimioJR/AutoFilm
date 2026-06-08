@@ -1,5 +1,6 @@
 mod alist;
 mod alist2strm;
+mod ani2alist;
 mod app_info;
 mod args;
 mod config;

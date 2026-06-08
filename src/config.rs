@@ -1,4 +1,4 @@
-use crate::{alist, alist2strm};
+use crate::{alist, alist2strm, ani2alist};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::Path;
@@ -10,6 +10,8 @@ pub struct Config {
     pub alist: Vec<alist::AlistConfig>,
     #[serde(default)]
     pub alist2strm_tasks: Vec<alist2strm::Config>,
+    #[serde(default)]
+    pub ani2alist_tasks: Vec<ani2alist::Config>,
 }
 
 impl Config {
@@ -29,6 +31,7 @@ mod tests {
             .expect("example config should parse");
 
         assert_eq!(config.alist2strm_tasks.len(), 2);
+        assert_eq!(config.ani2alist_tasks.len(), 3);
         assert_eq!(config.alist.len(), 2);
         assert_eq!(config.alist[0].id, "我的Alist");
         assert_eq!(config.alist[0].base_url, "http://alist:5244");
@@ -52,6 +55,11 @@ mod tests {
                 .and_then(|sync| sync.smart_protection.as_ref())
                 .expect("sync smart protection should exist")
                 .enabled
+        );
+        assert_eq!(config.ani2alist_tasks[0].alist, "我的Alist");
+        assert_eq!(
+            config.ani2alist_tasks[0].source.rss_url,
+            "https://api.ani.rip/ani-download.xml"
         );
     }
 }
