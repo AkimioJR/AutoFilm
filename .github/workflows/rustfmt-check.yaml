@@ -1,4 +1,4 @@
-name: Rust Code Style Format
+name: rustfmt-check
 
 on:
   push:
@@ -10,8 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  fmt:
-    name: Cargo Fmt
+  fmt-check:
+    name: Rust Format Check
     runs-on: ubuntu-latest
 
     steps:
@@ -25,5 +25,5 @@ jobs:
         with:
           components: rustfmt
 
-      - name: Format Code
+      - name: Rust Format Check
         run: cargo fmt --check
