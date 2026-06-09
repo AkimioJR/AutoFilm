@@ -14,8 +14,7 @@ use super::config::{Config, UpdateConfig};
 use super::url_tree::{FileEntry, Tree};
 use super::utils::{
     AniDirectoryResp, current_season, file_url, is_directory_mime, is_supported_file_mime,
-    join_url, parse_ani_timestamp, rss_items, season_key, season_key_from_parts,
-    template_path_segments,
+    join_url, parse_ani_timestamp, rss_items, season_key_from_parts, template_path_segments,
 };
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -78,12 +77,6 @@ impl<T: TimeZone> Ani2Alist<T> {
                     "开始解析 ANI 当前季度目录"
                 );
                 self.update_from_directory_key(&mut tree, &key, path_prefix)
-                    .await?;
-            }
-            UpdateConfig::Season { year, month } => {
-                let key = season_key(*year, *month, self.now());
-                info!(task_id = %self.config.id, key = %key, "开始解析 ANI 季度目录");
-                self.update_from_directory_key(&mut tree, &key, vec![key.clone()])
                     .await?;
             }
             UpdateConfig::Keyword { keyword } => {

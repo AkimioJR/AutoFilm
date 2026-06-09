@@ -30,10 +30,6 @@ pub enum UpdateConfig {
         #[serde(default)]
         template: Option<String>,
     },
-    Season {
-        year: Option<i32>,
-        month: Option<u32>,
-    },
     Keyword {
         keyword: String,
     },
@@ -114,26 +110,6 @@ update:
         assert!(matches!(
             latest_without_template.update,
             UpdateConfig::Latest { template: None }
-        ));
-
-        let season: Config = serde_yaml::from_str(
-            r#"
-id: 指定季度
-alist: 我的Alist
-target_dir: /Anime
-update:
-  mode: season
-  year: 2026
-  month: 4
-"#,
-        )
-        .unwrap();
-        assert!(matches!(
-            season.update,
-            UpdateConfig::Season {
-                year: Some(2026),
-                month: Some(4)
-            }
         ));
 
         let keyword: Config = serde_yaml::from_str(
