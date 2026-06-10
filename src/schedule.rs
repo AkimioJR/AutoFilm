@@ -63,7 +63,7 @@ pub async fn create_scheduler(
                                target_dir = %summary.target_dir.display(),
                                start_time = %&summary.start_time.with_timezone(&tz),
                                end_time = %&summary.end_time.with_timezone(&tz),
-                               duration_millis = summary.duration.as_millis(),
+                               duration = ?summary.duration,
                                scanned_dir_count = summary.scanned_dir_count,
                                skipped_dir_count = summary.skipped_dir_count,
                                discovered_file_count = summary.discovered_file_count,
