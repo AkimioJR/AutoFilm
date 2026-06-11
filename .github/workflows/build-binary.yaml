@@ -14,7 +14,25 @@ jobs:
             target: x86_64-unknown-linux-musl
             bin: autofilm
           - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bin: autofilm
+          - os: ubuntu-latest
             target: aarch64-unknown-linux-musl
+            bin: autofilm
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            bin: autofilm
+          - os: ubuntu-latest
+            target: riscv64gc-unknown-linux-musl
+            bin: autofilm
+          - os: ubuntu-latest
+            target: riscv64gc-unknown-linux-gnu
+            bin: autofilm
+          - os: ubuntu-latest
+            target: loongarch64-unknown-linux-musl
+            bin: autofilm
+          - os: ubuntu-latest
+            target: loongarch64-unknown-linux-gnu
             bin: autofilm
           - os: macOS-latest
             target: x86_64-apple-darwin
