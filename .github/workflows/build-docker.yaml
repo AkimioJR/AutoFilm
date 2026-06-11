@@ -32,8 +32,18 @@ jobs:
       - name: Download Linux binary artifacts
         uses: actions/download-artifact@v8
         with:
-          pattern: AutoFilm-Linux-*
-          merge-multiple: true
+          pattern: "*-unknown-linux-musl"
+          path: targets
+
+      - name: Prepare Docker build binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p targets/linux/amd64 targets/linux/arm64/v8
+
+          cp targets/x86_64-unknown-linux-musl/autofilm targets/linux/amd64/autofilm
+          cp targets/aarch64-unknown-linux-musl/autofilm targets/linux/arm64/v8/autofilm
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4

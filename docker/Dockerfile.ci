@@ -1,31 +1,14 @@
-FROM alpine AS base
+FROM alpine
 
 ARG TARGETPLATFORM
-
-WORKDIR /app
-
-COPY AutoFilm-*-musl.tar.gz ./targets/
-
-RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-      tar xzf ./targets/AutoFilm-x86_64-musl.tar.gz -C ./; \
-    elif [ "$TARGETPLATFORM" = "linux/arm64" ] || [ "$TARGETPLATFORM" = "linux/arm64/v8" ]; then \
-      tar xzf ./targets/AutoFilm-aarch64-musl.tar.gz -C ./; \
-    else \
-      echo "Unsupported target platform: $TARGETPLATFORM" >&2; \
-      exit 1; \
-    fi
-
-RUN rm -rf ./targets && chmod +x ./autofilm
-
-FROM alpine
 
 ENV TZ=Asia/Shanghai
 
 RUN apk add --no-cache ca-certificates tzdata
 
-COPY --from=base /app/autofilm /app/autofilm
+COPY --chmod=755 targets/${TARGETPLATFORM}/autofilm /autofilm
 
 VOLUME ["/config", "/logs", "/media", "/fonts"]
 WORKDIR /
 
-ENTRYPOINT ["/app/autofilm"]
+ENTRYPOINT ["./autofilm"]

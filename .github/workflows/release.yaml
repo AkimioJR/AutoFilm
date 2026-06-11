@@ -30,10 +30,59 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Download release artifact
+      - name: Download binary artifacts
         uses: actions/download-artifact@v8
         with:
-          merge-multiple: true
+          path: dist/input
+
+      # 根据可执行二进制文件的后缀进行打包，如果无后缀，则使用tar.gz格式，如果是exe，则使用zip格式
+      # 打包后的文件名为 AutoFilm-<target>.<ext>
+      # 打包内容有可执行二进制文件、LICENSE、config/config.example.yaml、README.md
+      - name: Package release files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          input_dir="${GITHUB_WORKSPACE}/dist/input"
+          output_dir="${GITHUB_WORKSPACE}/dist/release"
+          mkdir -p "${output_dir}"
+
+          for artifact_dir in "${input_dir}"/*; do
+            [[ -d "${artifact_dir}" ]] || continue
+
+            target="$(basename "${artifact_dir}")"
+            package_dir="${GITHUB_WORKSPACE}/dist/package/${target}"
+
+            mkdir -p "${package_dir}"
+
+            shopt -s nullglob
+            bins=("${artifact_dir}"/*)
+            shopt -u nullglob
+
+            if (( ${#bins[@]} != 1 )); then
+              echo "Expected exactly one binary in ${artifact_dir}, found ${#bins[@]}" >&2
+              exit 1
+            fi
+
+            bin_path="${bins[0]}"
+            bin_name="$(basename "${bin_path}")"
+
+            cp "${bin_path}" "${package_dir}/${bin_name}"
+            cp LICENSE "${package_dir}/LICENSE"
+            cp config/config.example.yaml "${package_dir}/config.example.yaml"
+            cp README.md "${package_dir}/README.md"
+
+            pushd "${package_dir}" > /dev/null
+
+            if [[ "${bin_name}" == *.exe ]]; then
+              zip -r "${output_dir}/AutoFilm-${target}.zip" "${bin_name}" LICENSE config.example.yaml README.md
+            else
+              chmod +x "${bin_name}"
+              tar czf "${output_dir}/AutoFilm-${target}.tar.gz" "${bin_name}" LICENSE config.example.yaml README.md
+            fi
+
+            popd > /dev/null
+          done
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v3
@@ -41,7 +90,4 @@ jobs:
           tag_name: ${{ github.ref_name }}
           draft: true
           files: |
-            AutoFilm*
-            LICENSE
-            config/config.example.yaml
-            README.md
+            dist/release/AutoFilm*
