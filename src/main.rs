@@ -10,8 +10,8 @@ mod schedule;
 
 use args::CliArgs;
 use clap::Parser;
-use config::Config;
-use tracing::{debug, info, warn};
+use config::{Config, Error as ConfigError};
+use tracing::{debug, error, info, warn};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -34,19 +34,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         timezone = ?args.timezone,
         "启动参数解析完成"
     );
-    let config = Config::load(&args.config_path)?;
-
-    if config.alist2strm_tasks.is_empty() {
-        warn!("未检测到 Alist2Strm 任务配置");
-        return Ok(());
-    }
+    let config = match Config::load(&args.config_path) {
+        Ok(config) => config,
+        Err(ConfigError::CreatedExample { path }) => {
+            error!(config_path = %path, "配置文件不存在，已生成示例配置文件，请编辑后重新启动程序");
+            return Ok(());
+        }
+        Err(err) => return Err(Box::new(err) as Box<dyn std::error::Error + Send + Sync>),
+    };
 
     info!(timezone = %tz, "使用应用时区");
 
     let (mut scheduler, scheduled_count) = schedule::create_scheduler(config, tz).await?;
 
     if scheduled_count == 0 {
-        warn!("没有可调度的 Alist2Strm 任务");
+        warn!("没有可调度的任务");
         return Ok(());
     }
 
