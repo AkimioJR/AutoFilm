@@ -121,5 +121,5 @@
 
 # Star History
 <a href="https://github.com/AkimioJR/AutoFilm/stargazers">
-    <img width="500" alt="Star History Chart" src="https://api.star-history.com/svg?repos=AkimioJR/AutoFilm&type=Date">
+    <img width="500" alt="Star History Chart" src="https://star-history.dera.page/svg?repos=AkimioJR/AutoFilm&type=Date">
 </a> 
