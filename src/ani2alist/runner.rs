@@ -263,7 +263,7 @@ fn default_url_tree_storage_req(mount_path: &str, addition: String) -> StorageRe
 
 fn storage_req_from_storage(storage: &Storage, addition: String) -> StorageReq {
     StorageReq {
-        id: Some(storage.id.to_string()),
+        id: Some(storage.id),
         mount_path: storage.mount_path.clone(),
         order: Some(storage.order),
         driver: storage.driver.clone(),
@@ -325,7 +325,7 @@ mod tests {
     fn builds_storage_update_request_from_existing_storage() {
         let req = storage_req_from_storage(&storage(), r#"{"url_structure":"new"}"#.to_string());
 
-        assert_eq!(req.id.as_deref(), Some("7"));
+        assert_eq!(req.id, Some(7));
         assert_eq!(req.mount_path, "/Anime");
         assert_eq!(req.driver, "UrlTree");
         assert!(req.enable_sign);
