@@ -1,18 +1,7 @@
-mod alist;
-mod alist2strm;
-mod ani2alist;
-mod app_info;
-mod args;
-mod config;
-mod extensions;
-mod library_poster;
-mod logging;
-mod media_server;
-mod schedule;
-
-use args::CliArgs;
+use autofilm::args::CliArgs;
+use autofilm::config;
+use autofilm::{app_info, logging, schedule};
 use clap::Parser;
-use config::{Config, Error as ConfigError};
 use tracing::{debug, error, info, warn};
 
 #[tokio::main]
@@ -36,9 +25,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         timezone = ?args.timezone,
         "启动参数解析完成"
     );
-    let config = match Config::load(&args.config_path) {
+    let config = match config::Config::load(&args.config_path) {
         Ok(config) => config,
-        Err(ConfigError::CreatedExample { path }) => {
+        Err(config::Error::CreatedExample { path }) => {
             error!(config_path = %path, "配置文件不存在，已生成示例配置文件，请编辑后重新启动程序");
             return Ok(());
         }
