@@ -13,7 +13,7 @@ serde_json = "1.0.151"
 serde_yaml = "0.9.34"
 alist = { package = "alist-client-rs", path = "alist-client-rs" }
 ab_glyph = "0.2.32"
-base64 = "0.22.1"
+base64 = "0.23.1"
 chrono = "0.4.45"
 chrono-tz = "0.10"
 futures-util = "0.3.33"
@@ -25,7 +25,7 @@ image = { version = "0.25.8", default-features = false, features = [
     "webp",
 ] }
 imageproc = "0.27.0"
-rand = "0.10.2"
+rand = "0.10.3"
 regex = "1.13.1"
 reqwest = { version = "0.13.4", default-features = false, features = [
     "http2",
@@ -62,7 +62,7 @@ codegen-units = 1
 # "fat": 优化空间更大，体积更小
 lto = "fat"
 # 3: 性能优先
-#"s": 体积优先
+# "s": 体积优先
 # "z": 极致体积优先
 opt-level = 3
 # 在编译产物中自动剥离（Strip）调试信息和符号表
