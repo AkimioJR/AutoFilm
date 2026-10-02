@@ -1,8 +1,9 @@
 mod resolution;
 
+use std::path::PathBuf;
+
 pub use resolution::Resolution;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 #[derive(Debug, Clone, Copy, Default, Deserialize, Serialize, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]

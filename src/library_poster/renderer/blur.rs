@@ -1,9 +1,9 @@
 use image::{DynamicImage, Rgba};
 
-use super::utils::{
-    adjust_brightness, cover, dominant_color, draw_titles_centered, optimized_blur, tint,
+use super::{
+    Fonts, Result,
+    utils::{adjust_brightness, cover, dominant_color, draw_titles_centered, optimized_blur, tint},
 };
-use super::{Fonts, Result};
 use crate::library_poster::RenderConfig;
 
 /// 生成以首张素材为全屏模糊背景、标题居中的极简风格。

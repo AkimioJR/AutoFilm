@@ -1,5 +1,6 @@
-use serde::Serialize;
 use std::sync::LazyLock;
+
+use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 pub struct ApplicationInfo {

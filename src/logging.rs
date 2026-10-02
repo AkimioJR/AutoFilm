@@ -2,15 +2,12 @@ mod daily_file_appender;
 
 use chrono::Utc;
 use chrono_tz::Tz;
-use tracing::level_filters::LevelFilter;
-use tracing::{Level, info, warn};
-use tracing_appender::non_blocking::WorkerGuard;
-use tracing_subscriber::Layer;
-use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::util::SubscriberInitExt;
-
 use daily_file_appender::DailyFileAppender;
-use tracing_subscriber::fmt::time::FormatTime;
+use tracing::{Level, info, level_filters::LevelFilter, warn};
+use tracing_appender::non_blocking::WorkerGuard;
+use tracing_subscriber::{
+    Layer, fmt::time::FormatTime, layer::SubscriberExt, util::SubscriberInitExt,
+};
 
 /// 自定义一个结构体，用来存放 chrono_tz 的时区
 #[derive(Debug, Clone)]

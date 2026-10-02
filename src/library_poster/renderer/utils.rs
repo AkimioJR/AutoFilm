@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 
 use ab_glyph::{Font, FontArc, PxScale, ScaleFont};
-use image::imageops::{FilterType, blur, overlay};
-use image::{DynamicImage, GenericImageView, Rgba, RgbaImage};
+use image::{
+    DynamicImage, GenericImageView, Rgba, RgbaImage,
+    imageops::{FilterType, blur, overlay},
+};
 use imageproc::drawing::draw_text_mut;
 
 use super::Fonts;

@@ -1,11 +1,12 @@
-use std::collections::HashSet;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
 use tokio::fs;
 use tracing::info;
 
-use crate::alist2strm::errors::Result;
-use crate::alist2strm::path::AlistPath;
+use crate::alist2strm::{errors::Result, path::AlistPath};
 
 /// 判断本地伴生文件是否已经过期或疑似损坏。
 ///

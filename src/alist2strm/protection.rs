@@ -1,11 +1,13 @@
+use std::{
+    collections::{HashMap, HashSet},
+    path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
+};
+
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs;
 
-use crate::alist2strm::config::SmartProtectionConfig;
-use crate::alist2strm::errors::Result;
+use crate::alist2strm::{config::SmartProtectionConfig, errors::Result};
 
 #[derive(Debug)]
 pub struct ProtectionManager {
@@ -137,8 +139,9 @@ async fn load_state(path: &Path) -> Result<ProtectionState> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::*;
 
     #[tokio::test]
     async fn delays_large_deletions_until_grace_count() {

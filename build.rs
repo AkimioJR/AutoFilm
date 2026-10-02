@@ -1,5 +1,4 @@
-use std::env;
-use std::process::Command;
+use std::{env, process::Command};
 
 fn main() {
     let git_branch = git_output(&["branch", "--show-current"]).filter(|branch| !branch.is_empty());

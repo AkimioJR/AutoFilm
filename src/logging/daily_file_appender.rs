@@ -1,8 +1,11 @@
+use std::{
+    fs::{File, OpenOptions},
+    io::{self, Write},
+    path::{Path, PathBuf},
+};
+
 use chrono::{Datelike, NaiveDate, Utc};
 use chrono_tz::Tz;
-use std::fs::{File, OpenOptions};
-use std::io::{self, Write};
-use std::path::{Path, PathBuf};
 
 pub(super) struct DailyFileAppender {
     directory: PathBuf,

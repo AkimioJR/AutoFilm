@@ -187,8 +187,9 @@ fn xml_unescape(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use chrono::TimeZone;
+
+    use super::*;
 
     #[test]
     fn builds_season_keys() {

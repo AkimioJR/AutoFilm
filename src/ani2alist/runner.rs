@@ -1,20 +1,25 @@
-use std::sync::Arc;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
-use alist::Client;
-use alist::models::admin::AdminPageQuery;
-use alist::models::admin::storage::{Storage, StorageReq};
+use alist::{
+    Client,
+    models::admin::{
+        AdminPageQuery,
+        storage::{Storage, StorageReq},
+    },
+};
 use chrono::{DateTime, TimeZone, Utc};
 use reqwest::StatusCode;
 use serde_json::{Value, json};
 use thiserror::Error;
 use tracing::{debug, info, warn};
 
-use super::config::{Config, UpdateConfig};
-use super::url_tree::{FileEntry, Tree};
-use super::utils::{
-    AniDirectoryResp, current_season, file_url, is_directory_mime, is_supported_file_mime,
-    join_url, parse_ani_timestamp, rss_items, season_key_from_parts, template_path_segments,
+use super::{
+    config::{Config, UpdateConfig},
+    url_tree::{FileEntry, Tree},
+    utils::{
+        AniDirectoryResp, current_season, file_url, is_directory_mime, is_supported_file_mime,
+        join_url, parse_ani_timestamp, rss_items, season_key_from_parts, template_path_segments,
+    },
 };
 
 pub type Result<T> = std::result::Result<T, Error>;

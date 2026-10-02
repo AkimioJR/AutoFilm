@@ -1,6 +1,4 @@
-use autofilm::args::CliArgs;
-use autofilm::config;
-use autofilm::{app_info, logging, schedule};
+use autofilm::{app_info, args::CliArgs, config, logging, schedule};
 use clap::Parser;
 use tracing::{debug, error, info, warn};
 

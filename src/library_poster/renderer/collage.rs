@@ -1,12 +1,13 @@
-use image::imageops::overlay;
-use image::{DynamicImage, Rgba, RgbaImage};
+use image::{DynamicImage, Rgba, RgbaImage, imageops::overlay};
 use imageproc::geometric_transformations::{Border, Interpolation, rotate_about_center};
 
-use super::utils::{
-    apply_rounded_corners, cover, dominant_color, draw_titles_wrapped, gradient_background,
-    overlay_with_shadow,
+use super::{
+    Fonts, Result,
+    utils::{
+        apply_rounded_corners, cover, dominant_color, draw_titles_wrapped, gradient_background,
+        overlay_with_shadow,
+    },
 };
-use super::{Fonts, Result};
 use crate::library_poster::RenderConfig;
 
 /// 生成左侧标题、右侧九宫格倾斜海报墙的拼贴风格。

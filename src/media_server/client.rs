@@ -3,9 +3,11 @@ use std::time::Duration;
 use reqwest::{RequestBuilder, Url};
 use serde::de::DeserializeOwned;
 
-use super::config::Config;
-use super::error::{Error, Result};
-use super::models::{ImageKind, Library, MediaItem, QueryResult, User};
+use super::{
+    config::Config,
+    error::{Error, Result},
+    models::{ImageKind, Library, MediaItem, QueryResult, User},
+};
 
 #[derive(Debug, Clone)]
 pub struct Client {
@@ -182,10 +184,12 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-    use std::io::{Read, Write};
-    use std::net::TcpListener;
-    use std::sync::mpsc;
-    use std::thread;
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        sync::mpsc,
+        thread,
+    };
 
     use super::*;
     use crate::media_server::Kind;

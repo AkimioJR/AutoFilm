@@ -1,7 +1,7 @@
+use std::path::PathBuf;
+
 use chrono_tz::Tz;
 use clap::Parser;
-
-use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -59,8 +59,9 @@ impl CliArgs {
 
 #[cfg(test)]
 mod tests {
-    use super::CliArgs;
     use clap::Parser;
+
+    use super::CliArgs;
 
     #[test]
     fn parses_debug_flag_and_config_path() {

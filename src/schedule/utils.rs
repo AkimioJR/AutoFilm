@@ -1,10 +1,12 @@
-use crate::alist::{AlistConfig, build_client};
+use std::{collections::HashMap, sync::Arc};
+
 use alist::Client;
-use std::collections::HashMap;
-use std::sync::Arc;
 use tracing::{debug, error, warn};
 
-use crate::media_server;
+use crate::{
+    alist::{AlistConfig, build_client},
+    media_server,
+};
 
 pub async fn create_alist_clients(
     alist_configs: &Vec<AlistConfig>,

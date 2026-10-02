@@ -1,27 +1,33 @@
-use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, atomic::Ordering};
+use std::{
+    collections::{HashMap, HashSet},
+    path::{Path, PathBuf},
+    sync::{Arc, atomic::Ordering},
+};
 
-use alist::Client;
-use alist::models::fs::{FsGetReq, FsListReq};
-use futures_util::future::FutureExt;
-use futures_util::stream::{FuturesUnordered, StreamExt};
+use alist::{
+    Client,
+    models::fs::{FsGetReq, FsListReq},
+};
+use futures_util::{
+    future::FutureExt,
+    stream::{FuturesUnordered, StreamExt},
+};
 use regex::Regex;
 use reqwest::StatusCode;
-
-use crate::alist2strm::config::{Config, Mode, SmartProtectionConfig};
-use crate::alist2strm::errors::{Error, Result};
-use crate::alist2strm::path::{AlistPath, bdmv_root, is_bdmv_file};
-use crate::alist2strm::protection::ProtectionManager;
-use crate::alist2strm::summary::{RunStats, RunSummary};
-use crate::alist2strm::utils::{
-    collect_local_files, companion_file_is_stale, remove_empty_parents,
-};
-use crate::extensions::{IMAGE_EXTS, NFO_EXTS, SUBTITLE_EXTS, VIDEO_EXTS};
-use tokio::fs;
-use tokio::io::AsyncWriteExt;
-use tokio::sync::Semaphore;
+use tokio::{fs, io::AsyncWriteExt, sync::Semaphore};
 use tracing::{debug, info, warn};
+
+use crate::{
+    alist2strm::{
+        config::{Config, Mode, SmartProtectionConfig},
+        errors::{Error, Result},
+        path::{AlistPath, bdmv_root, is_bdmv_file},
+        protection::ProtectionManager,
+        summary::{RunStats, RunSummary},
+        utils::{collect_local_files, companion_file_is_stale, remove_empty_parents},
+    },
+    extensions::{IMAGE_EXTS, NFO_EXTS, SUBTITLE_EXTS, VIDEO_EXTS},
+};
 #[derive(Debug, Clone)]
 pub struct Alist2Strm {
     config: Config,

@@ -1,8 +1,9 @@
-use crate::{alist, alist2strm, ani2alist, library_poster, media_server};
+use std::{fs, path::Path};
+
 use serde::{Deserialize, Serialize};
-use std::fs;
-use std::path::Path;
 use thiserror::Error;
+
+use crate::{alist, alist2strm, ani2alist, library_poster, media_server};
 
 const EXAMPLE_CONFIG: &str = include_str!("../config/config.example.yaml");
 
@@ -69,8 +70,9 @@ fn write_example_config(path: &Path) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::*;
 
     #[test]
     fn parses_rust_nested_example_config() {

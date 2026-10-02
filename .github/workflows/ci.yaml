@@ -58,9 +58,9 @@ jobs:
           submodules: recursive
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
 
       - name: Rust Format Check
-        run: cargo fmt --check
+        run: cargo +nightly fmt --check

@@ -1,7 +1,9 @@
-use std::collections::{HashMap, HashSet};
-use std::io::Cursor;
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::{
+    collections::{HashMap, HashSet},
+    io::Cursor,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use ab_glyph::FontArc;
 use base64::Engine;
@@ -9,8 +11,10 @@ use image::{DynamicImage, ImageFormat};
 use thiserror::Error;
 use tracing::{debug, error, info, warn};
 
-use super::renderer::{self, Fonts};
-use super::{Config, LibraryConfig, Sort, Style};
+use super::{
+    Config, LibraryConfig, Sort, Style,
+    renderer::{self, Fonts},
+};
 use crate::media_server::{Client, ImageKind, Library, MediaItem};
 
 #[derive(Debug, Default)]

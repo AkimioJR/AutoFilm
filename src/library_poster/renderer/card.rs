@@ -1,11 +1,13 @@
 use image::{DynamicImage, Rgba, RgbaImage};
 use imageproc::geometric_transformations::{Border, Interpolation, rotate_about_center};
 
-use super::utils::{
-    adjust_brightness, apply_rounded_corners, cover, dominant_color, draw_titles_wrapped,
-    optimized_blur, overlay_with_shadow, tint,
+use super::{
+    Fonts, Result,
+    utils::{
+        adjust_brightness, apply_rounded_corners, cover, dominant_color, draw_titles_wrapped,
+        optimized_blur, overlay_with_shadow, tint,
+    },
 };
-use super::{Fonts, Result};
 use crate::library_poster::RenderConfig;
 
 /// 生成右侧 iMessage 式多卡片堆叠、左侧标题的卡片风格。

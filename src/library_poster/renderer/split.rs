@@ -1,10 +1,12 @@
 use image::{DynamicImage, GenericImageView, Rgba, RgbaImage};
 
-use super::utils::{
-    adjust_brightness, cover_resize_dimensions, dominant_color, draw_titles_wrapped,
-    optimized_blur, tint,
+use super::{
+    Fonts, Result,
+    utils::{
+        adjust_brightness, cover_resize_dimensions, dominant_color, draw_titles_wrapped,
+        optimized_blur, tint,
+    },
 };
-use super::{Fonts, Result};
 use crate::library_poster::RenderConfig;
 
 /// 生成斜线分隔背景与靠右主图的分割风格。

@@ -1,6 +1,8 @@
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::{Duration, Instant};
+use std::{
+    path::PathBuf,
+    sync::atomic::{AtomicUsize, Ordering},
+    time::{Duration, Instant},
+};
 
 use chrono::{DateTime, Utc};
 
