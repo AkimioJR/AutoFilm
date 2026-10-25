@@ -1,56 +1,23 @@
-use std::{env, process::Command};
+use std::env;
 
-fn main() {
-    let git_branch = git_output(&["branch", "--show-current"]).filter(|branch| !branch.is_empty());
+use vergen_gix::{Build, Cargo, Emitter, Gix, Rustc};
 
-    println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=src");
-    println!("cargo:rerun-if-changed=.git/HEAD");
-    println!("cargo:rerun-if-changed=.git/index");
-    println!("cargo:rerun-if-changed=.git/packed-refs");
-    if let Some(branch) = git_branch.as_deref() {
-        println!("cargo:rerun-if-changed=.git/refs/heads/{branch}");
-    }
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let build = Build::all_build();
+    let cargo = Cargo::all_cargo();
+    let git = Gix::all_git();
+    let rustc = Rustc::all_rustc();
 
-    set_env("AUTOFILM_BUILD_TIME", &chrono::Utc::now().to_rfc3339());
-    set_env(
-        "AUTOFILM_BUILD_TARGET",
-        env::var("TARGET").as_deref().unwrap_or("unknown"),
-    );
-    set_env(
-        "AUTOFILM_BUILD_PROFILE",
-        env::var("PROFILE").as_deref().unwrap_or("unknown"),
-    );
-    set_env(
-        "AUTOFILM_RUSTC_VERSION",
-        command_output("rustc", &["--version"])
-            .as_deref()
-            .unwrap_or("unknown"),
-    );
-    set_env(
-        "AUTOFILM_GIT_COMMIT",
-        git_output(&["rev-parse", "HEAD"])
-            .as_deref()
-            .unwrap_or("unknown"),
-    );
-    set_env(
-        "AUTOFILM_GIT_BRANCH",
-        git_branch.as_deref().unwrap_or("detached"),
-    );
-}
+    Emitter::default()
+        .add_instructions(&build)?
+        .add_instructions(&cargo)?
+        .add_instructions(&git)?
+        .add_instructions(&rustc)?
+        .emit()?;
 
-fn set_env(key: &str, value: &str) {
-    println!("cargo:rustc-env={key}={value}");
-}
+    // cargo 在构建时向 build.rs 注入 PROFILE 环境变量（如 "debug" / "release"）
+    let profile = env::var("PROFILE").unwrap_or_else(|_| "unknown".to_string());
+    println!("cargo:rustc-env=VERGEN_CARGO_PROFILE={profile}");
 
-fn git_output(args: &[&str]) -> Option<String> {
-    command_output("git", args)
-}
-
-fn command_output(command: &str, args: &[&str]) -> Option<String> {
-    let output = Command::new(command).args(args).output().ok()?;
-    output
-        .status
-        .success()
-        .then(|| String::from_utf8_lossy(&output.stdout).trim().to_string())
+    Ok(())
 }

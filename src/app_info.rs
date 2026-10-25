@@ -26,12 +26,12 @@ pub static APPLICATION_INFO: LazyLock<ApplicationInfo> = LazyLock::new(|| Applic
         .map(|s| s.trim().into())
         .collect(),
     repository: env!("CARGO_PKG_REPOSITORY").into(),
-    rustc_version: env!("AUTOFILM_RUSTC_VERSION").into(),
-    git_commit: env!("AUTOFILM_GIT_COMMIT").into(),
-    git_branch: env!("AUTOFILM_GIT_BRANCH").into(),
-    build_time: env!("AUTOFILM_BUILD_TIME").into(),
-    build_target: env!("AUTOFILM_BUILD_TARGET").into(),
-    build_profile: env!("AUTOFILM_BUILD_PROFILE").into(),
+    rustc_version: env!("VERGEN_RUSTC_SEMVER").into(),
+    git_commit: env!("VERGEN_GIT_SHA").into(),
+    git_branch: env!("VERGEN_GIT_BRANCH").into(),
+    build_time: env!("VERGEN_BUILD_TIMESTAMP").into(),
+    build_target: env!("VERGEN_CARGO_TARGET_TRIPLE").into(),
+    build_profile: env!("VERGEN_CARGO_PROFILE").into(),
 });
 
 pub const LOGO: &str = concat!(

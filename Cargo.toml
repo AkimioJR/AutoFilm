@@ -50,8 +50,7 @@ tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt"] }
 urlencoding = "2.1.3"
 
 [build-dependencies]
-chrono = "0.4.45"
-
+vergen-gix = { version = "10.0.3", features = ["build", "cargo", "rustc"] }
 
 [profile.release]
 # 控制 LLVM 将单个 Crate 拆分为1个“代码生成单元”进行并行编译。
