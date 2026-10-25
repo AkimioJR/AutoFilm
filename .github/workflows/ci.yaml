@@ -6,6 +6,8 @@ on:
       - "**/*.rs"
       - "Cargo.toml"
       - "Cargo.lock"
+      - "rust-toolchain.toml"
+      - "rustfmt.toml"
   pull_request:
   workflow_dispatch:
 
@@ -31,9 +33,19 @@ jobs:
         with:
           submodules: recursive
 
+      # rust-toolchain.toml 是编译器版本的唯一来源：直接装它，免得先装 stable 再被 rustup 换掉
+      - name: Read pinned Rust toolchain
+        id: rust-toolchain
+        shell: bash
+        run: |
+          channel=$(sed -nE 's/^channel *= *"([^"]+)".*/\1/p' rust-toolchain.toml)
+          test -n "$channel"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-
+        with:
+          toolchain: ${{ steps.rust-toolchain.outputs.channel }}
       - name: Cache Rust Dependencies
         uses: Swatinem/rust-cache@v2
         with:
