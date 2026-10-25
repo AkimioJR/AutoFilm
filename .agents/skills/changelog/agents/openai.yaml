@@ -1,0 +1,4 @@
+interface:
+  display_name: "Changelog"
+  short_description: "Standardize, write, and maintain CHANGELOG.md"
+  default_prompt: "Use $changelog when creating, updating, or reviewing CHANGELOG.md."
