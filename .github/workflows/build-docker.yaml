@@ -17,6 +17,9 @@ jobs:
   build-docker:
     runs-on: ubuntu-latest
     name: Build Docker Image
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -27,7 +30,10 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ secrets.DOCKERHUB_USERNAME }}/autofilm
+          # 同时发布到 Docker Hub 和 GHCR，镜像 tag 保持一致。
+          images: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/autofilm
+            ghcr.io/${{ github.repository }}
 
       - name: Download Linux binary artifacts
         uses: actions/download-artifact@v8
@@ -56,6 +62,13 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Image
         uses: docker/build-push-action@v7
