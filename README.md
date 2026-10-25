@@ -23,7 +23,7 @@
 [部署方式](#部署方式) •
 [Strm文件优点](#Strm文件优点) •
 [TODO LIST](#todo-list) •
-[更新日志](#更新日志) •
+[更新日志](CHANGELOG.md) •
 [贡献者](#贡献者) •
 [Star History](#star-history)
 
@@ -95,24 +95,6 @@
   </tr>
 </table>
 
-# 更新日志
-- 2026.7.23: v2.0.0，使用 rust 重构 AutoFilm，大幅度提高性能降低内存占用，**配置文件变化较大，需要重新配置**
-- 2026.6.3：v1.5.1，Alist2Strm 新增 public_url 支持内外网地址分离；新增 .strm 智能保护防止大量误删；重构 HTTP 客户端设计；更新 Docker Python 版本与 Pillow 依赖；更新项目相关链接
-- 2025.9.26：v1.5.0，支持 BDMV 蓝光原盘文件结构，引入 Alist2StrmMode 枚举以简化模式管理，优化 LibraryPoster 对多路径媒体库的处理
-- 2025.7.14：v1.4.0，修复 Ani2Alist 模块时间解析问题，新增 LibraryPoster 美化媒体库封面模块
-- 2025.5.29：v1.3.3，Alist2Strm 模块支持添加删除空目录的功能；提高 Alist V3.45 兼容性；添加 m2ts 视频文件后缀到视频扩展集合；修复视频扩展集合中".wmv"缺失前缀错误
-- 2025.4.4：v1.3.2，添加 .mpg 视频文件后缀；优化重试装饰器；优化重试装饰器；新增遍历文件间隔时间，防止被风控；修正部分方法名、返回变量类型、文档表述错误
-- 2025.3.15：v1.3.1，修复重试装饰器参数类型错误；在 AlistStorage 中添加 model_config 以忽略特定类型避免 Cython 编译后无法使用；修改 AlistClient 中的异常捕获以避免捕获其他异常；使用 Cython 对 Docker 容器内的 py 文件编译，提高性能
-- 2025.3.12：v1.3.0，增加汉字转拼音相关工具；修复 AlistStorage 属性调用错误问题；修复 RSS 订阅更新对 storage.addition2dict 结构中 url_structure 的处理；修复无法仅 token 实例化 AlistClient 对象问题；优化 Ani2Alist 运行逻辑；优化 Ani2Alist 性能，减少 URL 解码次数；优化 Alist2Strm 支持判断本地文件是否过期或损坏而进行重新处理
-- 2025.1.10：v1.2.6 使用 RequestUtils 作为全局统一的 HTTP 请求出口、更新 Docker 镜像底包、Alist2Strm 新增同步忽略功能
-- 2024.11.8：v1.2.5，Alist2Strm 模块新增同步功能；优化 AlistClient，减少 token 申请；支持使用永久令牌；优化日志功能
-- 2024.8.26：v1.2.4，完善 URL 中文字符编码问题；提高 Python3.11 兼容性；Alist2Strm 的 mode 选项
-- 2024.7.17：v1.2.2，增加 Ani2Strm 模块
-- 2024.7.8：v1.2.0，修改程序运行逻辑，使用 AsyncIOScheduler 实现后台定时任务
-- 2024.6.3：v1.1.0，使用 alist 官方 api 替代 webdav 实现“扫库”；采用异步并发提高运行效率；配置文件有改动；支持非基础路径 Alist 用户以及无 Webdav 权限用户
-- 2024.5.29：v1.0.2，优化运行逻辑；Docker 部署，自动打包 Docker 镜像
-- 2024.2.1：v1.0.0，完全重构 AutoFilm ，不再兼容 v0.1 ；实现多线程，大幅度提升任务处理速度
-- 2024.1.28：v0.1.1，初始版本持续迭代
 
 # 贡献者
 <a href="https://github.com/AkimioJR/AutoFilm/graphs/contributors">
