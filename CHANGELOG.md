@@ -252,6 +252,37 @@
 - **[Docker]**: 提供基于 Musl 的轻量级跨平台多架构 Docker 镜像（`linux/amd64` 与 `linux/arm64`）。
 - **[CI]**: 搭建 GitHub Actions 自动化 CI/CD 流水线，全面覆盖跨平台编译、Docker 镜像打包与 GitHub Release 发布。
 
+## [2.0.1] - 2026-10-25
+
+### ✨ 新增
+- **[Docker]**: Docker 构建工作流支持同时发布多架构镜像至 Docker Hub 与 GitHub Container Registry (GHCR)，便于灵活选择镜像拉取源。
+
+### ⚡ 优化
+- **[Build]**: 使用纯 Rust 实现的 `vergen-gix` 重构 `build.rs`，直接解析 `.git` 目录生成编译期元数据，彻底移除对系统 `git` 和 `rustc` 命令行的子进程依赖。
+- **[Core]**: 将应用信息中的 `build_time` 字段类型优化为 `DateTime<Local>` 本地时间，序列化 JSON 输出时保持扁平化展示。
+- **[Core]**: 开启 Cargo Release 模式下的编译优化（`lto = "fat"`, `codegen-units = 1`, `strip = "symbols"`），大幅减小二进制体积并提升运行性能。
+- **[Core]**: 应用信息结构体字段类型由静态字符串调整为动态字符串，优化内存管理。
+
+### 🐛 修复
+- **[Ani2Alist]**: 兼容存储器更新接口返回 `null` 数据的响应，避免空数据引发反序列化失败。
+- **[Ani2Alist]**: 修复存储器更新请求 ID 被序列化为字符串而触发 400 错误的问题。
+- **[Alist2Strm]**: 修复下载链接签名被二次 URL 编码的问题，确保生成的 302 直链可正常跳转播放。
+- **[Build]**: 二进制产物名称统一规范为 `autofilm`，修复 CI 构建产物与打包上传路径不匹配的问题。
+- **[Docker]**: 修复 Docker 构建工作流中 `tags` 标签配置缩进，确保正确生成多仓库标签规则。
+
+### 🔄 变更
+- **[CLI]**: 拆分 Rust 库入口 (`lib.rs`) 与二进制入口 (`bin/main.rs`)，规范程序结构与构建边界。
+
+### 🔒 安全
+- **[Deps]**: 升级 `tokio` 至 `1.54.1`，修复多线程运行时下的竞态条件与 Use-After-Free 风险（RUSTSEC-2026-0384 / RUSTSEC-2026-0386）；同步更新 `hyper`、`h2`、`rustls`、`aws-lc-rs` 等 40+ 项上游依赖。
+
+### 🔧 工程与维护
+- **[CI]**: 引入 `rust-toolchain.toml` 锁定编译器版本，并在 CI 与多架构 Release 流水线中自动对齐编译器。
+- **[CI]**: 重构 GitHub Release 发布工作流，优先从 `CHANGELOG.md` 中动态提取版本变更说明并自动追加配置样例。
+- **[CI]**: 扩展单元测试覆盖 Linux (amd64 / arm64)、macOS、Windows 等多平台架构，并将测试与代码格式校验整合至统一 CI 流水线。
+- **[Docs]**: 规范化 `CHANGELOG.md` 撰写流程与 Agent Skill，将更新日志从 `README.md` 完整迁移并独立维护。
+- **[Core]**: 添加 `rustfmt.toml` 配置并统一全仓代码格式。
+
 ---
 
 <!-- ==================== 底部版本比对链接 (Reference Links) ==================== -->
@@ -280,3 +311,4 @@
 [1.5.0-1]: https://github.com/AkimioJR/AutoFilm/compare/v1.5.0...v1.5.0-1
 [1.5.1]: https://github.com/AkimioJR/AutoFilm/compare/v1.5.0-1...v1.5.1
 [2.0.0]: https://github.com/AkimioJR/AutoFilm/compare/v1.5.1...v2.0.0
+[2.0.1]: https://github.com/AkimioJR/AutoFilm/compare/v2.0.0...v2.0.1
