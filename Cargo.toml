@@ -9,7 +9,7 @@ description = "一个为Emby、Jellyfin提供生成strm、动漫追番、绘制�
 [dependencies]
 clap = { version = "4.6.4", features = ["derive"] }
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
+serde_json = "1.0.154"
 serde_yaml = "0.9.34"
 alist = { package = "alist-client-rs", path = "alist-client-rs" }
 ab_glyph = "0.2.32"
@@ -35,7 +35,7 @@ reqwest = { version = "0.13.4", default-features = false, features = [
     "stream",
 ] }
 thiserror = "2.0.19"
-tokio = { version = "1.53.1", features = [
+tokio = { version = "1.54.1", features = [
     "fs",
     "io-util",
     "macros",
