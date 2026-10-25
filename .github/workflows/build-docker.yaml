@@ -30,10 +30,17 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          # 同时发布到 Docker Hub 和 GHCR，镜像 tag 保持一致。
+          # 同时生成 Docker Hub 和 GHCR 的镜像标签，两边标签规则完全保持一致
           images: |
             ${{ secrets.DOCKERHUB_USERNAME }}/autofilm
             ghcr.io/${{ github.repository }}
+          # 保留分支、语义化版本和原始 v* tag，确保 Release 中的镜像 tag 可直接拉取
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
 
       - name: Download Linux binary artifacts
         uses: actions/download-artifact@v8
