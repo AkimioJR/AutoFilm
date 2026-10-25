@@ -2,7 +2,7 @@
 name = "autofilm"
 version = "2.0.0"
 edition = "2024"
-authors = ["AkimioJR"]
+authors = ["AkimioJR <akimio.jr@gmail.com>"]
 repository = "https://github.com/AkimioJR/AutoFilm"
 description = "一个为Emby、Jellyfin提供生成strm、动漫追番、绘制媒体库海报的小工具"
 
