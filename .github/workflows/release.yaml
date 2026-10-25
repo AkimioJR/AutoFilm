@@ -111,7 +111,8 @@ jobs:
             echo "prerelease=true" >> "${GITHUB_OUTPUT}"
           fi
 
-      # 基于上一个 tag 到 HEAD 之间的提交，按 Conventional Commits 前缀自动生成 changelog
+      # 优先从 CHANGELOG.md 中提取当前发布版本的详细说明（严格过滤 --- 分割线及下方的比对链接）；
+      # 若为预发布（pre-release）或未在 CHANGELOG.md 找到对应章节，则回退为根据 Git 提交记录自动生成。
       - name: Generate Release Body
         id: release_body
         run: |
@@ -133,97 +134,121 @@ jobs:
           fi
           echo "Previous tag: ${PREVIOUS_TAG}"
 
-          # 使用 || 作为分隔符，同时获取 commit 消息和作者名
-          if [ -z "${PREVIOUS_TAG}" ]; then
-            COMMITS=$(git log --pretty=format:"%s||%an" HEAD)
-          else
-            COMMITS=$(git log --pretty=format:"%s||%an" "${PREVIOUS_TAG}..HEAD")
-          fi
-
-          # 分类收集 commit 消息（使用关联数组去重）
-          declare -A SEEN
-          FEATURES=""
-          FIXES=""
-          OTHERS=""
-
-          while IFS= read -r line; do
-            # 跳过空行
-            if [ -z "$line" ]; then
-              continue
-            fi
-
-            # 分离 commit 消息和作者
-            msg=$(echo "$line" | sed 's/||[^|]*$//')
-            author=$(echo "$line" | sed 's/.*||//')
-
-            # 跳过 Merge commit 和版本更新 commit
-            if echo "$msg" | grep -qE "^Merge pull request|^Merge branch|^chore\(release\)|^更新 version"; then
-              continue
-            fi
-
-            # 按 Conventional Commits 前缀分类
-            if echo "$msg" | grep -qiE "^(feat|perfect)(\(.+\))?:"; then
-              desc=$(echo "$msg" | sed -E 's/^(feat|perfect)(\([^)]*\))?:[[:space:]]*//')
-              category="FEATURES"
-            elif echo "$msg" | grep -qiE "^fix(\(.+\))?:"; then
-              desc=$(echo "$msg" | sed -E 's/^fix(\([^)]*\))?:[[:space:]]*//')
-              category="FIXES"
-            elif echo "$msg" | grep -qiE "^(docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?:"; then
-              desc=$(echo "$msg" | sed -E 's/^(docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]*\))?:[[:space:]]*//')
-              category="OTHERS"
-            else
-              desc="$msg"
-              category="OTHERS"
-            fi
-
-            # 使用 "分类+描述" 作为去重的 key，跳过重复内容
-            dedup_key="${category}::${desc}"
-            if [ -n "${SEEN[$dedup_key]+x}" ]; then
-              continue
-            fi
-            SEEN[$dedup_key]=1
-
-            # 添加 by @author 引用
-            entry="- ${desc} by @${author}"
-
-            case "$category" in
-              FEATURES) FEATURES="${FEATURES}${entry}\n" ;;
-              FIXES)    FIXES="${FIXES}${entry}\n" ;;
-              OTHERS)   OTHERS="${OTHERS}${entry}\n" ;;
-            esac
-          done <<< "$COMMITS"
-
-          # 组装 changelog
           CHANGELOG=""
 
-          if [ -n "$FEATURES" ]; then
-            CHANGELOG="${CHANGELOG}### ✨ 新功能\n\n${FEATURES}\n"
+          # 1. 正式版本发布时（非 pre-release），优先从 CHANGELOG.md 中提取对应版本的说明
+          # 提取当前版本从 ## [版本] 开始，到下一个 ## [ 或 --- 分割线前的内容，避免将底部的比对链接引入 release body
+          if [[ "${{ steps.release_tag.outputs.prerelease }}" == "false" ]] && [ -f CHANGELOG.md ]; then
+            RAW_CHANGELOG=$(awk -v ver="${TAG_NAME#v}" '
+              BEGIN { in_section = 0 }
+              $0 ~ "^## \\[" {
+                if (in_section) exit
+                if ($0 ~ "^## \\[" ver "\\]") {
+                  in_section = 1
+                  next
+                }
+              }
+              in_section {
+                if ($0 ~ "^---+" || $0 ~ "^<!--" || $0 ~ "^\\[[^\\]]+\\]:") exit
+                print
+              }
+            ' CHANGELOG.md | sed '/./,$!d' || true)
+
+            if [ -n "$RAW_CHANGELOG" ]; then
+              CHANGELOG="$RAW_CHANGELOG"
+            fi
           fi
 
-          if [ -n "$FIXES" ]; then
-            CHANGELOG="${CHANGELOG}### 🐛 修复\n\n${FIXES}\n"
+          # 2. 如果未能从 CHANGELOG.md 中提取（例如滚动预发布 pre-release），则基于上一个 tag 到 HEAD 的提交记录自动分类生成
+          if [ -z "$CHANGELOG" ]; then
+            if [ -z "${PREVIOUS_TAG}" ]; then
+              COMMITS=$(git log --pretty=format:"%s||%an" HEAD)
+            else
+              COMMITS=$(git log --pretty=format:"%s||%an" "${PREVIOUS_TAG}..HEAD")
+            fi
+
+            declare -A SEEN
+            FEATURES=""
+            FIXES=""
+            OTHERS=""
+
+            while IFS= read -r line; do
+              if [ -z "$line" ]; then
+                continue
+              fi
+
+              msg=$(echo "$line" | sed 's/||[^|]*$//')
+              author=$(echo "$line" | sed 's/.*||//')
+
+              if echo "$msg" | grep -qE "^Merge pull request|^Merge branch|^chore\(release\)|^更新 version"; then
+                continue
+              fi
+
+              if echo "$msg" | grep -qiE "^(feat|perfect)(\(.+\))?:"; then
+                desc=$(echo "$msg" | sed -E 's/^(feat|perfect)(\([^)]*\))?:[[:space:]]*//')
+                category="FEATURES"
+              elif echo "$msg" | grep -qiE "^fix(\(.+\))?:"; then
+                desc=$(echo "$msg" | sed -E 's/^fix(\([^)]*\))?:[[:space:]]*//')
+                category="FIXES"
+              elif echo "$msg" | grep -qiE "^(docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?:"; then
+                desc=$(echo "$msg" | sed -E 's/^(docs|style|refactor|perf|test|build|ci|chore|revert)(\([^)]*\))?:[[:space:]]*//')
+                category="OTHERS"
+              else
+                desc="$msg"
+                category="OTHERS"
+              fi
+
+              dedup_key="${category}::${desc}"
+              if [ -n "${SEEN[$dedup_key]+x}" ]; then
+                continue
+              fi
+              SEEN[$dedup_key]=1
+
+              entry="- ${desc} by @${author}"
+
+              case "$category" in
+                FEATURES) FEATURES="${FEATURES}${entry}"$'\n' ;;
+                FIXES)    FIXES="${FIXES}${entry}"$'\n' ;;
+                OTHERS)   OTHERS="${OTHERS}${entry}"$'\n' ;;
+              esac
+            done <<< "$COMMITS"
+
+            if [ -n "$FEATURES" ]; then
+              CHANGELOG="${CHANGELOG}### ✨ 新功能"$'\n\n'"${FEATURES}"$'\n'
+            fi
+
+            if [ -n "$FIXES" ]; then
+              CHANGELOG="${CHANGELOG}### 🐛 修复"$'\n\n'"${FIXES}"$'\n'
+            fi
+
+            if [ -n "$OTHERS" ]; then
+              CHANGELOG="${CHANGELOG}### 🔧 其他"$'\n\n'"${OTHERS}"$'\n'
+            fi
           fi
 
-          if [ -n "$OTHERS" ]; then
-            CHANGELOG="${CHANGELOG}### 🔧 其他\n\n${OTHERS}\n"
-          fi
+          # 3. 组装最终 Release Body
+          BODY="${CHANGELOG}"
 
           # 添加版本对比链接
           if [ -n "${PREVIOUS_TAG}" ]; then
-            CHANGELOG="${CHANGELOG}**完整更新记录**: https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${TAG_NAME}"
+            if [ -n "${BODY}" ]; then
+              BODY="${BODY}"$'\n\n'
+            fi
+            BODY="${BODY}**完整更新记录**: https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${TAG_NAME}"
           fi
 
           # 添加 Docker compose.yaml 配置示例。预发布使用 main，正式发布使用对应的 v* tag。
           COMPOSE_CONTENT=$(sed -E "s|(image:[[:space:]]+akimio/autofilm:)[^[:space:]#]+|\\1${COMPOSE_IMAGE_TAG}|" docker/compose.yaml)
-          CHANGELOG="${CHANGELOG}\n\n### 🐳 Docker Compose 配置示例\n\n\`\`\`yaml\n${COMPOSE_CONTENT}\n\`\`\`"
+          BODY="${BODY}"$'\n\n### 🐳 Docker Compose 配置示例\n\n```yaml\n'"${COMPOSE_CONTENT}"$'\n```'
 
           # 添加 config.yaml 配置示例
-          CHANGELOG="${CHANGELOG}\n\n### ⚙️ config.yaml 配置示例\n\n\`\`\`yaml\n$(cat config/config.example.yaml)\n\`\`\`"
+          CONFIG_CONTENT=$(cat config/config.example.yaml)
+          BODY="${BODY}"$'\n\n### ⚙️ config.yaml 配置示例\n\n```yaml\n'"${CONFIG_CONTENT}"$'\n```'
 
           # 使用 heredoc 写入多行输出
           {
             echo "body<<EOF"
-            printf '%b\n' "${CHANGELOG}"
+            echo "${BODY}"
             echo "EOF"
           } >> "${GITHUB_OUTPUT}"
 
