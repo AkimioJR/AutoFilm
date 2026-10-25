@@ -1,5 +1,6 @@
 use std::sync::LazyLock;
 
+use chrono::{DateTime, Local};
 use serde::Serialize;
 
 #[derive(Debug, Serialize)]
@@ -12,7 +13,7 @@ pub struct ApplicationInfo {
     pub rustc_version: String,
     pub git_commit: String,
     pub git_branch: String,
-    pub build_time: String,
+    pub build_time: DateTime<Local>,
     pub build_target: String,
     pub build_profile: String,
 }
@@ -29,7 +30,9 @@ pub static APPLICATION_INFO: LazyLock<ApplicationInfo> = LazyLock::new(|| Applic
     rustc_version: env!("VERGEN_RUSTC_SEMVER").into(),
     git_commit: env!("VERGEN_GIT_SHA").into(),
     git_branch: env!("VERGEN_GIT_BRANCH").into(),
-    build_time: env!("VERGEN_BUILD_TIMESTAMP").into(),
+    build_time: env!("VERGEN_BUILD_TIMESTAMP")
+        .parse::<DateTime<Local>>()
+        .unwrap(),
     build_target: env!("VERGEN_CARGO_TARGET_TRIPLE").into(),
     build_profile: env!("VERGEN_CARGO_PROFILE").into(),
 });
